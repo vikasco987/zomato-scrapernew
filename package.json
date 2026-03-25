@@ -4,9 +4,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "node dist/index.js",
     "build": "npx tsc",
-    "dev": "npx tsc && node dist/index.js",
+    "scraper": "node dist/index.js",
+    "server": "node dist/server.js",
+    "dev": "npx tsc && concurrently \"node dist/index.js\" \"node dist/server.js\"",
     "db:push": "npx prisma db push",
     "db:studio": "npx prisma studio"
   },
@@ -16,6 +17,7 @@
   "type": "module",
   "devDependencies": {
     "@prisma/client": "^6.4.1",
+    "@types/fs-extra": "^11.0.4",
     "@types/node": "^25.5.0",
     "@types/puppeteer": "^5.4.7",
     "axios": "^1.13.6",
@@ -26,7 +28,17 @@
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.5.0",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
     "better-sqlite3": "^12.8.0",
-    "dotenv": "^17.3.1"
+    "cloudinary": "^2.9.0",
+    "concurrently": "^9.2.1",
+    "cors": "^2.8.6",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "fs-extra": "^11.3.4",
+    "puppeteer-extra": "^3.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "sharp": "^0.34.5"
   }
 }

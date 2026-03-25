@@ -14,10 +14,23 @@ model FoodImage {
   id           String   @id @default(auto()) @map("_id") @db.ObjectId
   foodName     String   @unique
   originalUrl  String?
+  cloudinaryUrl String?  // 🔥 The Pro CDN URL
   localPath    String?
   status       String   @default("pending") // pending, completed, failed
   retryCount   Int      @default(0)
   errorMessage String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+model ScraperJob {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId         String
+  status         String   @default("queued") // queued, processing, completed, failed
+  totalItems     Int      @default(0)
+  processedCount Int      @default(0)
+  failedCount    Int      @default(0)
+  error          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
