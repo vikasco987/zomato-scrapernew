@@ -1,0 +1,32 @@
+{
+  "name": "zomato-scraper",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node dist/index.js",
+    "build": "npx tsc",
+    "dev": "npx tsc && node dist/index.js",
+    "db:push": "npx prisma db push",
+    "db:studio": "npx prisma studio"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "devDependencies": {
+    "@prisma/client": "^6.4.1",
+    "@types/node": "^25.5.0",
+    "@types/puppeteer": "^5.4.7",
+    "axios": "^1.13.6",
+    "prisma": "^6.4.1",
+    "puppeteer": "^24.40.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.2"
+  },
+  "dependencies": {
+    "@prisma/adapter-better-sqlite3": "^7.5.0",
+    "better-sqlite3": "^12.8.0",
+    "dotenv": "^17.3.1"
+  }
+}
