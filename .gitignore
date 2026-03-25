@@ -5,3 +5,6 @@ images
 *.db
 *.db-journal
 .DS_Store
+dist-app
+temp
+debug.png
