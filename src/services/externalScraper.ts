@@ -69,14 +69,24 @@ export async function scrapeAndUpdateExternalMenu(userId: string, jobId?: string
                     }
                 }
             } catch (err: any) {
-                console.error(`❌ Item [${dishName}] error:`, err.message);
+                console.error(`❌ [${dishName}] Engine Error:`, err.message);
             } finally {
-                processedCount++;
+                // 📊 ATOMIC PROGRESS SYNC (Avoiding Deadlocks)
                 if (jobId) {
-                    await prisma.scraperJob.update({
-                        where: { id: jobId },
-                        data: { processedCount }
-                    });
+                    let retries = 3;
+                    while (retries > 0) {
+                        try {
+                            await prisma.scraperJob.update({
+                                where: { id: jobId },
+                                data: { processedCount: { increment: 1 } }
+                            });
+                            break; // Success
+                        } catch (e) {
+                            retries--;
+                            if (retries === 0) console.error(`⚠️ DB_CONFLICT: [${jobId}] Progress drop.`);
+                            await new Promise(r => setTimeout(r, 100));
+                        }
+                    }
                 }
             }
         })
