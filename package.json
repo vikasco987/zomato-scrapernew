@@ -4,9 +4,9 @@
   "description": "",
   "main": "electron-main.js",
   "scripts": {
-    "build": "npx tsc",
+    "build": "npx prisma generate && npx tsc",
     "start": "node dist/server.js",
-    "dev": "npx tsc && concurrently \"node dist/index.js\" \"node dist/server.js\"",
+    "dev": "npx prisma generate && npx tsc && concurrently \"node dist/index.js\" \"node dist/server.js\"",
     "electron": "npx tsc && electron .",
     "dist": "npx tsc && electron-builder",
     "db:push": "npx prisma db push",

@@ -18,7 +18,12 @@ export async function scrapeFoodImages(foodName: string): Promise<ScrapeResult> 
   // @ts-ignore
   const browser = await (puppeteer as any).launch({ 
     headless: "new",
-    args: ['--no-sandbox', '--disable-setuid-sandbox'] 
+    args: [
+      '--no-sandbox', 
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu'
+    ] 
   });
   const page = await browser.newPage();
   
