@@ -94,14 +94,14 @@ export async function scrapeFoodImages(foodName: string): Promise<ScrapeResult> 
             height: metadata.h || 0
           };
         });
-      }).then(res => res.filter(c => c.url));
+      }).then((res: any[]) => res.filter((c: any) => c.url));
       
       await browser.close();
       return { success: bingCandidates.length > 0, candidates: bingCandidates };
     }
 
     await browser.close();
-    return { success: true, candidates: candidates.filter(c => c.url) };
+    return { success: true, candidates: candidates.filter((c: any) => c.url) };
 
   } catch (error: any) {
     console.error(`❌ PROXY SCRAPE FAILED: ${error.message}`);

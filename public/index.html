@@ -63,7 +63,13 @@
         </main>
 
         <!-- PAGE: Jobs -->
-        <main id="page-history" class="tab-content hidden"><div id="liveJobsList" class="grid grid-cols-1 gap-6"></div></main>
+        <main id="page-history" class="tab-content hidden">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold">Live Jobs & Logs</h2>
+                <button onclick="clearAllJobs()" class="bg-red-500/20 text-red-500 hover:bg-red-500/30 px-4 py-2 rounded-xl text-xs font-bold border border-red-500/10">💥 Clear All History</button>
+            </div>
+            <div id="liveJobsList" class="grid grid-cols-1 gap-6"></div>
+        </main>
     </div>
 
     <!-- SOCKET IO CLIENT -->
@@ -72,15 +78,29 @@
         const socket = io();
         socket.on("job_update", (job) => {
             console.log("⚡ SOCKET_UPDATE:", job);
-            // Update the live jobs tab if active
             if(!document.getElementById('page-history').classList.contains('hidden')) {
                 pollJobs();
             }
-            // If the job is for the current restaurant, update its sync status
             if(job.userId === currentUserId && job.status === 'completed') {
                 selectRestaurant(job.userId, document.getElementById('selectedRestoName').innerText);
             }
         });
+
+        async function deleteJob(id) {
+            if(!confirm('Delete this job log?')) return;
+            try {
+                await fetch(`/api/jobs/${id}`, { method: 'DELETE' });
+                pollJobs();
+            } catch (e) { alert('Delete failed'); }
+        }
+
+        async function clearAllJobs() {
+            if(!confirm('This will wipe ALL job history. Continue?')) return;
+            try {
+                await fetch('/api/jobs/clear-all', { method: 'DELETE' });
+                pollJobs();
+            } catch (e) { alert('Purge failed'); }
+        }
     </script>
 
     <!-- MODAL: MANUAL OVERRIDE -->
@@ -273,17 +293,21 @@
                 const res = await fetch('/api/jobs');
                 const jobs = await res.json();
                 container.innerHTML = jobs.map(j => `
-                    <div class="glass-card p-8 flex items-center justify-between">
-                        <div>
+                    <div class="glass-card p-8 flex items-center justify-between group">
+                        <div class="flex-1">
                             <h4 class="text-xl font-bold">${j.userId}</h4>
-                            <p class="text-[10px] opacity-50 mt-1">${j.status.toUpperCase()} • ${j.processedCount}/${j.totalItems} Items</p>
+                            <p class="text-[10px] opacity-50 mt-1 uppercase tracking-tighter">${j.status} • ${j.processedCount}/${j.totalItems} Items</p>
+                            ${j.error ? `<p class="text-[10px] text-red-500 mt-2">${j.error}</p>` : ''}
                         </div>
-                        <div class="w-32 bg-white/5 h-2 rounded-full overflow-hidden">
-                            <div class="bg-orange-500 h-full" style="width: ${j.totalItems > 0 ? (j.processedCount/j.totalItems)*100 : 0}%"></div>
+                        <div class="flex items-center gap-6">
+                            <div class="w-32 bg-white/5 h-2 rounded-full overflow-hidden">
+                                <div class="bg-orange-500 h-full transition-all duration-500" style="width: ${j.totalItems > 0 ? (j.processedCount/j.totalItems)*100 : 0}%"></div>
+                            </div>
+                            <button onclick="deleteJob('${j.id}')" class="p-3 bg-red-500/10 text-red-400 hover:bg-red-500 rounded-xl opacity-0 group-hover:opacity-100 transition-all">🗑️</button>
                         </div>
                     </div>
                 `).join('');
-                if (jobs.some(j => j.status === 'processing')) setTimeout(pollJobs, 4000);
+                if (jobs.some(j => j.status === 'processing' || j.status === 'queued')) setTimeout(pollJobs, 4000);
             } catch (e) { }
         }
 

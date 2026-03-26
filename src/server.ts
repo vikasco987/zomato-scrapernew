@@ -137,8 +137,29 @@ app.post("/api/cancel-job/:jobId", async (req, res) => {
 });
 
 /**
- * 🧪 AI ENGINE HEALTH CHECK (DIAGNOSTICS)
+ * 🗑️ JOB MANAGEMENT: Remove specific job
  */
+app.delete("/api/jobs/:id", async (req, res) => {
+  try {
+    await prisma.scraperJob.delete({ where: { id: req.params.id } });
+    res.json({ success: true, message: "Job trashed! 🗑️" });
+  } catch (e) {
+    res.status(500).json({ error: "Job already gone or error." });
+  }
+});
+
+/**
+ * 💥 JOB MANAGEMENT: Clear ALL history
+ */
+app.delete("/api/jobs/clear-all", async (req, res) => {
+  try {
+    await prisma.scraperJob.deleteMany({});
+    res.json({ success: true, message: "History Purged! 🌊" });
+  } catch (e) {
+    res.status(500).json({ error: "Clear failed." });
+  }
+});
+
 app.get("/api/test-scraper", async (req, res) => {
   try {
     console.log("🧪 DIAGNOSTICS: Starting AI Engine test...");
