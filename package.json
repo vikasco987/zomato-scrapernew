@@ -5,6 +5,7 @@
   "main": "electron-main.js",
   "scripts": {
     "build": "npx prisma generate && npx tsc",
+    "postinstall": "npx puppeteer browsers install chrome",
     "start": "node dist/server.js",
     "dev": "npx prisma generate && npx tsc && concurrently \"node dist/index.js\" \"node dist/server.js\"",
     "electron": "npx tsc && electron .",
