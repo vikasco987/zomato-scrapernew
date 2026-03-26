@@ -38,9 +38,7 @@
             <div id="stats-grid" class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-12"></div>
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-2xl font-bold">Processed Assets</h2>
-                <div class="flex gap-4">
-                    <button onclick="fetchData()" class="bg-white/5 hover:bg-white/10 px-4 py-2 rounded-xl text-xs font-bold border border-white/5">🔄 Refresh Gallery</button>
-                </div>
+                <button onclick="fetchData()" class="bg-white/5 hover:bg-white/10 px-4 py-2 rounded-xl text-xs font-bold border border-white/5">🔄 Refresh Gallery</button>
             </div>
             <div id="gallery-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8"></div>
         </main>
@@ -124,7 +122,7 @@
         let allGalleryItems = [];
         let currentUserId = '';
         let currentRestaurants = [];
-        let currentMenuCache = { pending: [], completed: [], stats: {} }; // Now matches merged API
+        let currentMenuCache = { pending: [], completed: [], stats: {} };
         let currentOverrideId = '';
 
         socket.on("job_update", (job) => {
@@ -208,7 +206,7 @@
             try {
                 const res = await fetch(`/api/external-menu/${id}`);
                 const data = await res.json();
-                currentMenuCache = data; // { pending: [], completed: [], stats: {} }
+                currentMenuCache = data;
                 renderMenuList(data);
             } catch (e) { list.innerHTML = '<p class="text-red-500 p-20 text-center">Link Failed.</p>'; }
         }
@@ -231,8 +229,8 @@
         }
 
         function renderItemRow(i, isSynced) {
-            const displayName = i.name || i.foodName; // external vs internal field
-            const displayImage = i.image || i.cloudinaryUrl;
+            const displayName = i.name || i.foodName;
+            const displayImage = i.imageUrl || i.cloudinaryUrl || i.image; // Match Billing API 'imageUrl'
             const itemId = i.id;
 
             return `
@@ -294,7 +292,7 @@
             const grid = document.getElementById('previewGrid');
             grid.innerHTML = combined.map(item => {
                 const displayName = item.name || item.foodName;
-                const displayImage = item.image || item.cloudinaryUrl;
+                const displayImage = item.imageUrl || item.cloudinaryUrl || item.image;
                 return `
                     <div class="group relative bg-[#0D0E14] rounded-[32px] overflow-hidden border border-white/[0.05] transition-all hover:scale-[1.02] hover:shadow-2xl hover:shadow-orange-500/10 h-full flex flex-col">
                         <div class="aspect-square w-full overflow-hidden bg-white/5 relative">
@@ -373,10 +371,10 @@
         }
 
         function renderStats() {
-            const completed = allGalleryItems.filter(f => f.status === 'completed').length;
+            const completedCount = allGalleryItems.filter(f => f.status === 'completed').length;
             document.getElementById('stats-grid').innerHTML = `
                 <div class="glass-card p-6 font-bold text-center"> <p class="text-[10px] opacity-50 uppercase tracking-widest">Assets</p> <p class="text-3xl font-black">${allGalleryItems.length}</p> </div>
-                <div class="glass-card p-6 font-bold text-center"> <p class="text-[10px] opacity-50 uppercase tracking-widest text-emerald-400">Fixed</p> <p class="text-3xl font-black">${completed}</p> </div>
+                <div class="glass-card p-6 font-bold text-center"> <p class="text-[10px] opacity-50 uppercase tracking-widest text-emerald-400">Fixed</p> <p class="text-3xl font-black">${completedCount}</p> </div>
                 <div class="glass-card p-6 font-bold text-center text-red-500"> <p class="text-[10px] opacity-50 uppercase tracking-widest">Issues</p> <p class="text-3xl font-black">${allGalleryItems.filter(f => f.status==='failed').length}</p> </div>
                 <div class="glass-card p-6 font-bold text-center"> <p class="text-[10px] opacity-50 uppercase tracking-widest text-orange-500">Uptime</p> <p class="text-3xl font-black">99%</p> </div>
             `;

@@ -120,25 +120,55 @@ app.get("/api/external-menu/:userId", async (req, res) => {
     const { userId } = req.params;
     // 1. Fetch current "Pending" items from Billing Server
     const response = await axios.get(`${EXTERNAL_BASE}/menu/${userId}`, { headers: { "x-scraper-secret": SECRET_KEY } });
-    const externalPending = response.data; // Items that need images
+    const externalItems = response.data || []; // All items from Billing Server
 
-    // 2. Fetch "Completed" items from our Local Cache/DB
+    // 2. Fetch our Local Cache for this user
     const localCompleted = await prisma.foodImage.findMany({
       where: { userId, status: "completed" }
     });
 
-    // 3. Return Merged View
+    // 3. Merged Split Logic
+    // We split current Billing Menu into "Already Done" and "To Do"
+    const pendingWithImages = externalItems
+      .filter((i: any) => !(i.imageUrl || i.image)) // Item has NO image (new or old)
+      .map((i: any) => {
+        // Shadow-merge: Check if our local DB has an image for this dish name
+        const match = localCompleted.find(lc => lc.foodName.toLowerCase() === i.name.toLowerCase());
+        if (match && match.cloudinaryUrl) {
+          return { ...i, imageUrl: match.cloudinaryUrl, _isLocalMatch: true };
+        }
+        return i;
+      });
+
+    const pending = pendingWithImages.filter((i: any) => !i.imageUrl);
+    const completedFromBilling = externalItems
+      .filter((i: any) => (i.imageUrl || i.image))
+      .map((i: any) => ({
+        ...i,
+        cloudinaryUrl: i.imageUrl || i.image // Fallback to image if imageUrl is missing
+      }));
+
+    const localOnlyMatches = pendingWithImages
+      .filter((i: any) => i._isLocalMatch)
+      .map((i: any) => ({
+        ...i,
+        cloudinaryUrl: i.imageUrl // This was set in the shadow-merge map
+      }));
+
+    // Final Completed list = Items already in billing + items we just found locally
+    const finalCompleted = [...completedFromBilling, ...localOnlyMatches];
+
     res.json({
-      pending: externalPending || [],
-      completed: localCompleted || [],
+      pending: pending,
+      completed: finalCompleted,
       stats: {
-        totalPending: (externalPending || []).length,
-        totalCompleted: (localCompleted || []).length
+        totalPending: pending.length,
+        totalCompleted: finalCompleted.length,
+        totalMenu: externalItems.length
       }
     });
   } catch (e: any) { 
     console.error(`🌉 BRIDGE ERROR [${req.params.userId}]:`, e.message);
-    // Return empty state instead of 500 to prevent frontend crash
     res.json({ pending: [], completed: [], stats: { totalPending: 0, totalCompleted: 0 } }); 
   }
 });
