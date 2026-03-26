@@ -27,8 +27,8 @@ export async function scrapeFoodImages(foodName: string): Promise<ScrapeResult> 
   });
   const page = await browser.newPage();
   
-  // 🔥 Time-to-Live settings
-  await page.setDefaultNavigationTimeout(15000);
+  // 🔥 Time-to-Live settings (Increased for production/cloud stability)
+  await page.setDefaultNavigationTimeout(45000);
 
   try {
     const query = encodeURIComponent(`${foodName} indian food hd`);
