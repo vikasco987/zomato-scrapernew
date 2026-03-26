@@ -44,14 +44,16 @@ export async function scrapeAndUpdateExternalMenu(userId: string, jobId?: string
     // 🏆 PARALLEL EXECUTION MAP
     const results = await Promise.all(items.map((item: any) => 
         limit(async () => {
-            const dishName = item.name;
+            // 🧹 Clean Dish Name (Remove sizes, packaging info)
+            let dishName = item.name.replace(/\(.*\)|\[.*\]|\d+\s*ml|\d+\s*lit/gi, "").trim();
             const itemId = item.id;
 
             try {
-                // 🔍 AI SEARCH
                 const searchResult = await scrapeFoodImages(dishName);
                 if (searchResult.success && searchResult.candidates.length > 0) {
                     const winner = pickBestImage(searchResult.candidates, dishName);
+                    
+                    // 🎯 Relaxed Scoring: Baseline 20 is enough for generic food
                     if (winner) {
                         const cdnUrl = await uploadImageFromUrl(winner.url, dishName);
                         if (cdnUrl) {
@@ -59,10 +61,12 @@ export async function scrapeAndUpdateExternalMenu(userId: string, jobId?: string
                                 imageUrl: cdnUrl 
                             }, { headers, timeout: 5000 });
                             successCount++;
+                        } else {
+                            console.error(`❌ [${dishName}] CDN_UPLOAD_FAILED`);
                         }
+                    } else {
+                        console.warn(`⚖️ [${dishName}] REJECTED_BY_SCORING`);
                     }
-                } else {
-                    console.warn(`⚠️ [${dishName}] Search empty. Candidates: 0`);
                 }
             } catch (err: any) {
                 console.error(`❌ Item [${dishName}] error:`, err.message);
