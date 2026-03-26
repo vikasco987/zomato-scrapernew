@@ -68,6 +68,12 @@ class QueueManager {
       await delay(2000); // Cool down before next job
     }
   }
+  async getJobs() {
+    return await prisma.scraperJob.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 20
+    });
+  }
 }
 
 export const queueManager = new QueueManager();

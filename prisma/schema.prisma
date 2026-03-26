@@ -17,6 +17,8 @@ model FoodImage {
   cloudinaryUrl String?  // 🔥 The Pro CDN URL
   localPath    String?
   status       String   @default("pending") // pending, completed, failed
+  confidence   Int      @default(0)     // AI Confidence Score (0-100)
+  isManual     Boolean  @default(false) // Whether user overrode this image
   retryCount   Int      @default(0)
   errorMessage String?
   createdAt    DateTime @default(now())

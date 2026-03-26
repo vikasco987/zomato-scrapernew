@@ -1,122 +1,128 @@
 import express from "express";
-import path from "path";
 import cors from "cors";
+import path from "path";
+import multer from "multer";
 import { prisma } from "./db/index.js";
-import { scrapeAndUpdateExternalMenu } from "./services/externalScraper.js";
 import { queueManager } from "./lib/queueManager.js";
+import { scrapeAndSaveFood } from "./index.js";
+import { v2 as cloudinary } from "cloudinary";
+import axios from "axios";
 
 const app = express();
-const PORT = 3000;
-
-app.use(cors());
 app.use(express.json());
+app.use(cors());
 
-// 🗂️ Serve Static Files (Dashboard + Local Images)
-app.use(express.static("public"));
-app.use("/images", express.static("images"));
+// Configure Multer for local temporary storage
+const upload = multer({ dest: "temp/uploads/" });
+
+// Serve frontend
+const __dirname = path.resolve();
+app.use(express.static(path.join(__dirname, "public")));
+
+const EXTERNAL_BASE = process.env.EXTERNAL_API_BASE || "https://billing.kravy.in/api/external";
+const SECRET_KEY = process.env.SCRAPER_SECRET_KEY || "kravy_scraper_secret_2026";
 
 /**
- * 📊 PRO DASHBOARD API (The missing link!)
- * Provides real-time JSON data to the Frontend gallery.
+ * 🍔 LIST FOODS
  */
 app.get("/api/foods", async (req, res) => {
-  try {
-    const foods = await prisma.foodImage.findMany({
-      orderBy: { updatedAt: "desc" },
-    });
-    
-    if (foods.length > 0) {
-      console.log("🔍 DIAGNOSTIC: Keys of first record:", Object.keys(foods[0]));
-      console.log("🔍 DIAGNOSTIC: cloudinaryUrl of first record:", (foods[0] as any).cloudinaryUrl);
-    }
-
-    res.json(foods);
-  } catch (error: any) {
-    console.error("❌ API Error:", error.message);
-    res.status(500).json({ error: "Failed to fetch data from MongoDB" });
-  }
+  const foods = await prisma.foodImage.findMany({ orderBy: { createdAt: "desc" } });
+  res.json(foods);
 });
 
 /**
- * 🔍 EXTERNAL MENU FETCH API
- * Fetches the current menu from the external system before scraping.
+ * ⚡ SINGLE ITEM SYNC
  */
-app.get("/api/external-menu/:userId", async (req, res) => {
-  const { userId } = req.params;
-  const EXTERNAL_BASE = process.env.EXTERNAL_API_BASE || "https://billing.kravy.in/api/external";
-  const SECRET_KEY = process.env.SCRAPER_SECRET_KEY || "kravy_scraper_secret_2026";
-  
+app.post("/api/scrape-single", async (req, res) => {
+  const { dish, externalId } = req.body;
   try {
-    const response = await fetch(`${EXTERNAL_BASE}/menu/${userId}`, {
-      headers: { "x-scraper-secret": SECRET_KEY }
-    });
-    const items = await response.json();
-    res.json(items);
+    const record = await scrapeAndSaveFood(dish);
+    if (record && record.cloudinaryUrl) {
+      await axios.patch(`${EXTERNAL_BASE}/menu/update/${externalId}`, { 
+        imageUrl: record.cloudinaryUrl 
+      }, { headers: { "x-scraper-secret": SECRET_KEY }, timeout: 5000 });
+      return res.json({ success: true, url: record.cloudinaryUrl, record });
+    }
+    res.status(404).json({ success: false, error: "No image found" });
   } catch (error: any) {
-    console.error("❌ External Fetch Error:", error.message);
-    res.status(500).json({ error: "Failed to fetch menu from external system" });
+    res.status(500).json({ error: error.message });
   }
 });
 
 /**
- * 👥 EXTERNAL USERS LIST API
- * Fetches all active restaurants/users from billing.kravy.in.
+ * 🔄 RE-SCRAPE API
+ */
+app.post("/api/rescrape/:id", async (req, res) => {
+  try {
+    const record = await prisma.foodImage.findUnique({ where: { id: req.params.id as string } });
+    if (!record) return res.status(404).json({ error: "Dish not found" });
+    const updated = await scrapeAndSaveFood(record.foodName);
+    res.json(updated);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * 📤 MANUAL UPLOAD
+ */
+app.post("/api/upload-manual/:id", upload.single("image"), async (req, res) => {
+  try {
+    const file = req.file;
+    if (!file) return res.status(400).json({ error: "No image provided" });
+    const record = await prisma.foodImage.findUnique({ where: { id: req.params.id as string } });
+    if (!record) return res.status(404).json({ error: "Dish not found" });
+
+    const result = await cloudinary.uploader.upload(file.path, {
+        folder: "manual-uploads",
+        public_id: `${record.foodName.toLowerCase().replace(/\s+/g, '-')}-manual`
+    });
+
+    const updated = await prisma.foodImage.update({
+        where: { id: record.id },
+        data: { cloudinaryUrl: result.secure_url, isManual: true, confidence: 100, status: "completed" }
+    });
+    res.json({ success: true, url: result.secure_url, updated });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * 🌉 EXTERNAL BRIDGE
  */
 app.get("/api/external-users", async (req, res) => {
-  const EXTERNAL_BASE = process.env.EXTERNAL_API_BASE || "https://billing.kravy.in/api/external";
-  const SECRET_KEY = process.env.SCRAPER_SECRET_KEY || "kravy_scraper_secret_2026";
-  
   try {
-    const response = await fetch(`${EXTERNAL_BASE}/users`, {
-      headers: { "x-scraper-secret": SECRET_KEY }
-    });
-    const users = await response.json();
-    res.json(users);
-  } catch (error: any) {
-    console.error("❌ User List Fetch Error:", error.message);
-    res.status(500).json({ error: "Failed to fetch user list" });
-  }
+    const response = await axios.get(`${EXTERNAL_BASE}/users`, { headers: { "x-scraper-secret": SECRET_KEY } });
+    res.json(response.data);
+  } catch (e) { res.status(500).json({ error: "Billing server unreachable" }); }
+});
+
+app.get("/api/external-menu/:userId", async (req, res) => {
+  try {
+    const response = await axios.get(`${EXTERNAL_BASE}/menu/${req.params.userId}`, { headers: { "x-scraper-secret": SECRET_KEY } });
+    res.json(response.data);
+  } catch (e) { res.status(500).json({ error: "Billing server unreachable" }); }
 });
 
 /**
- * 🔍 EXTERNAL MENU FETCH API
- * Add a scraping job to the persistent queue.
+ * 🚀 JOBS
  */
 app.post("/api/scrape-external", async (req, res) => {
   const { userId } = req.body;
-  if (!userId) return res.status(400).json({ error: "userId is required" });
-
-  try {
-    const job = await queueManager.addJob(userId);
-    res.json({ message: "Job Queued Successfully!", jobId: job.id });
-  } catch (error: any) {
-    console.error("❌ Queue Error:", error.message);
-    res.status(500).json({ error: "Failed to queue job" });
-  }
+  const job = await queueManager.addJob(userId);
+  res.json({ success: true, jobId: job.id });
 });
 
-/**
- * 📊 JOB STATUS API
- */
-app.get("/api/job-status/:jobId", async (req, res) => {
-  try {
-    const job = await prisma.scraperJob.findUnique({
-      where: { id: req.params.jobId }
-    });
-    if (!job) return res.status(404).json({ error: "Job not found" });
-    res.json(job);
-  } catch (error: any) {
-    res.status(500).json({ error: "Failed to fetch job status" });
-  }
+app.get("/api/jobs", async (req, res) => {
+  const jobs = await queueManager.getJobs();
+  res.json(jobs);
 });
 
-/**
- * 🛑 CANCEL JOB API
- */
 app.post("/api/cancel-job/:jobId", async (req, res) => {
   try {
     const job = await prisma.scraperJob.update({
-      where: { id: req.params.jobId },
+      where: { id: req.params.jobId as string },
       data: { status: "failed", error: "Cancelled by User" }
     });
     res.json({ message: "Job cancelled successfully!", job });
@@ -125,29 +131,7 @@ app.post("/api/cancel-job/:jobId", async (req, res) => {
   }
 });
 
-/**
- * 🛰️ ALL JOBS API
- * Returns all recent scraping jobs.
- */
-app.get("/api/jobs", async (req, res) => {
-  try {
-    const jobs = await prisma.scraperJob.findMany({
-      orderBy: { createdAt: "desc" }
-    });
-    res.json(jobs);
-  } catch (error: any) {
-    res.status(500).json({ error: "Failed to fetch jobs" });
-  }
-});
-
-/**
- * 🎨 MAIN DASHBOARD (Fallback)
- */
-app.get("/", (req, res) => {
-  res.sendFile(path.join(process.cwd(), "public", "index.html"));
-});
-
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`\n🚀 ULTIMATE PRO DASHBOARD ACTIVE: http://localhost:${PORT}`);
-  console.log(`📈 API Endpoint: http://localhost:${PORT}/api/foods\n`);
+    console.log(`\n🔱 KRAVY DASHBOARD: Running on http://localhost:${PORT}`);
 });
