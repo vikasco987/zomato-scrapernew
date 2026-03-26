@@ -128,16 +128,19 @@ app.get("/api/external-menu/:userId", async (req, res) => {
     });
 
     // 3. Return Merged View
-    // We send both so frontend can show "Queue" vs "History" or a unified list
     res.json({
-      pending: externalPending,
-      completed: localCompleted,
+      pending: externalPending || [],
+      completed: localCompleted || [],
       stats: {
-        totalPending: externalPending.length,
-        totalCompleted: localCompleted.length
+        totalPending: (externalPending || []).length,
+        totalCompleted: (localCompleted || []).length
       }
     });
-  } catch (e) { res.status(500).json({ error: "Billing server unreachable" }); }
+  } catch (e: any) { 
+    console.error(`🌉 BRIDGE ERROR [${req.params.userId}]:`, e.message);
+    // Return empty state instead of 500 to prevent frontend crash
+    res.json({ pending: [], completed: [], stats: { totalPending: 0, totalCompleted: 0 } }); 
+  }
 });
 
 /**
@@ -234,7 +237,7 @@ app.get("/api/test-scraper", async (req, res) => {
   }
 });
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3005;
 httpServer.listen(PORT, () => {
     console.log(`\n🔱 KRAVY DASHBOARD: Running on http://localhost:${PORT}`);
 });
