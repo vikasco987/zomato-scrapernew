@@ -1,6 +1,6 @@
 export const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
-export const randomJitter = (min = 1500, max = 4000) => {
+export const randomJitter = (min = 200, max = 800) => {
   const ms = Math.floor(Math.random() * (max - min)) + min;
   return delay(ms);
 };

@@ -45,7 +45,7 @@ export async function scrapeFoodImages(foodName: string): Promise<ScrapeResult> 
       return Array.from(document.querySelectorAll('.tile--img__img')).slice(0, 5).map(img => ({
            url: (img as HTMLImageElement).src || "", width: 500, height: 500
       }));
-    }).then(res => res.filter(c => c.url && !c.url.includes('data:image')));
+    }).then((res: any[]) => res.filter((c: any) => c.url && !c.url.includes('data:image')));
 
     // --- FALLBACK 2: Bing ---
     if (candidates.length === 0) {

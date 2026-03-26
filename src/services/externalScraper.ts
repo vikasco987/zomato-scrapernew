@@ -20,7 +20,7 @@ export async function scrapeAndUpdateExternalMenu(userId: string, jobId?: string
     "x-scraper-secret": SECRET_KEY
   };
 
-  const limit = pLimit(5); // 👈 5 Items in Parallel (Optimal Balance)
+  const limit = pLimit(12); // 👈 12 Items in Parallel (Turbo Local Mode)
 
   try {
     // 1. Fetch Menu Items (External Project)
