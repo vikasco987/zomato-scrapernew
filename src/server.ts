@@ -31,7 +31,12 @@ const SECRET_KEY = process.env.SCRAPER_SECRET_KEY || "kravy_scraper_secret_2026"
  * 🍔 LIST FOODS
  */
 app.get("/api/foods", async (req, res) => {
-  const foods = await prisma.foodImage.findMany({ orderBy: { createdAt: "desc" } });
+  const { userId } = req.query;
+  const where = userId ? { userId: userId as string } : {};
+  const foods = await prisma.foodImage.findMany({ 
+    where,
+    orderBy: { createdAt: "desc" } 
+  });
   res.json(foods);
 });
 
@@ -39,13 +44,15 @@ app.get("/api/foods", async (req, res) => {
  * ⚡ SINGLE ITEM SYNC
  */
 app.post("/api/scrape-single", async (req, res) => {
-  const { dish, externalId } = req.body;
+  const { dish, userId, externalId } = req.body;
   try {
-    const record = await scrapeAndSaveFood(dish);
+    const record = await scrapeAndSaveFood(dish, userId);
     if (record && record.cloudinaryUrl) {
-      await axios.patch(`${EXTERNAL_BASE}/menu/update/${externalId}`, { 
-        imageUrl: record.cloudinaryUrl 
-      }, { headers: { "x-scraper-secret": SECRET_KEY }, timeout: 5000 });
+      if (externalId) {
+        await axios.patch(`${EXTERNAL_BASE}/menu/update/${externalId}`, { 
+          imageUrl: record.cloudinaryUrl 
+        }, { headers: { "x-scraper-secret": SECRET_KEY }, timeout: 5000 });
+      }
       return res.json({ success: true, url: record.cloudinaryUrl, record });
     }
     res.status(404).json({ success: false, error: "No image found" });
@@ -61,9 +68,14 @@ app.post("/api/rescrape/:id", async (req, res) => {
   try {
     const record = await prisma.foodImage.findUnique({ where: { id: req.params.id as string } });
     if (!record) return res.status(404).json({ error: "Dish not found" });
-    const updated = await scrapeAndSaveFood(record.foodName);
+    
+    console.log(`\n🔄 MANUAL RE-SCRAPE TRIGGERED: ${record.foodName}`);
+    const updated = await scrapeAndSaveFood(record.foodName, record.userId, true); // Force = true
+    
+    if(!updated) throw new Error("Scraper failed to produce a result");
     res.json(updated);
   } catch (error: any) {
+    console.error(`❌ RE-SCRAPE FAILED: ${error.message}`);
     res.status(500).json({ error: error.message });
   }
 });
@@ -105,8 +117,26 @@ app.get("/api/external-users", async (req, res) => {
 
 app.get("/api/external-menu/:userId", async (req, res) => {
   try {
-    const response = await axios.get(`${EXTERNAL_BASE}/menu/${req.params.userId}`, { headers: { "x-scraper-secret": SECRET_KEY } });
-    res.json(response.data);
+    const { userId } = req.params;
+    // 1. Fetch current "Pending" items from Billing Server
+    const response = await axios.get(`${EXTERNAL_BASE}/menu/${userId}`, { headers: { "x-scraper-secret": SECRET_KEY } });
+    const externalPending = response.data; // Items that need images
+
+    // 2. Fetch "Completed" items from our Local Cache/DB
+    const localCompleted = await prisma.foodImage.findMany({
+      where: { userId, status: "completed" }
+    });
+
+    // 3. Return Merged View
+    // We send both so frontend can show "Queue" vs "History" or a unified list
+    res.json({
+      pending: externalPending,
+      completed: localCompleted,
+      stats: {
+        totalPending: externalPending.length,
+        totalCompleted: localCompleted.length
+      }
+    });
   } catch (e) { res.status(500).json({ error: "Billing server unreachable" }); }
 });
 

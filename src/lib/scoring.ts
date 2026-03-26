@@ -1,3 +1,5 @@
+import { cleanDishName } from "../scraper/utils.js";
+
 /**
  * 🧠 AI SCORING LOGIC
  * Evaluates image candidates based on production heuristics.
@@ -5,11 +7,14 @@
 export function scoreImage(img: { url: string; width?: number; height?: number }, dishName: string) {
   let score = 0;
   const url = img.url.toLowerCase();
-  const keywords = dishName.toLowerCase().split(/\s+/);
+  
+  // Clean name: "Veg fried momos ( full )" -> "veg fried momos"
+  const cleanName = cleanDishName(dishName).toLowerCase();
+  const keywords = cleanName.split(/\s+/).filter(k => k.length > 2);
 
-  // 1. Keyword Density Match (+5 per word)
+  // 1. Keyword Density Match (+10 per word - INCREASED WEIGHT)
   const matches = keywords.filter(k => url.includes(k)).length;
-  score += matches * 5;
+  score += matches * 10;
 
   // 2. Technical Dimension Check (+3 for HD)
   if (img.width && img.width > 400) score += 3;

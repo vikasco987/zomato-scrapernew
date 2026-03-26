@@ -14,3 +14,16 @@ export const USER_AGENTS = [
 
 export const getRandomUserAgent = () =>
   USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+
+/**
+ * 🧹 CLEAN DISH NAME for SEARCH
+ * Removes (full), (half), [V], etc to get pure food terms.
+ */
+export const cleanDishName = (name: string) => {
+    return name
+        .replace(/\(.*\)/g, '')
+        .replace(/\[.*\]/g, '')
+        .replace(/[^a-zA-Z0-9\s]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+};

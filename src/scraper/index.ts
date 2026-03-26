@@ -1,7 +1,7 @@
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
 import { anonymizeProxy } from 'proxy-chain';
-import { randomJitter, getRandomUserAgent } from './utils.js';
+import { randomJitter, getRandomUserAgent, cleanDishName } from './utils.js';
 
 // @ts-ignore
 puppeteer.use(StealthPlugin());
@@ -35,7 +35,11 @@ export async function scrapeFoodImages(foodName: string): Promise<ScrapeResult> 
     await page.setUserAgent(getRandomUserAgent());
     await page.setDefaultNavigationTimeout(45000);
 
-    const query = encodeURIComponent(`${foodName} dish food hd`);
+    const cleanName = cleanDishName(foodName);
+    const searchTerms = `${cleanName} dish food hd`;
+    const query = encodeURIComponent(searchTerms);
+
+    console.log(`🔍 [${foodName}] Searching for: ${searchTerms}`);
 
     // --- FALLBACK 1: DuckDuckGo ---
     const ddgUrl = `https://duckduckgo.com/?q=${query}&iax=images&ia=images`;
@@ -46,6 +50,8 @@ export async function scrapeFoodImages(foodName: string): Promise<ScrapeResult> 
            url: (img as HTMLImageElement).src || "", width: 500, height: 500
       }));
     }).then((res: any[]) => res.filter((c: any) => c.url && !c.url.includes('data:image')));
+
+    if (candidates.length > 0) console.log(`✅ [${foodName}] Found ${candidates.length} candidates on DuckDuckGo.`);
 
     // --- FALLBACK 2: Bing ---
     if (candidates.length === 0) {

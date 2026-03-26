@@ -12,7 +12,8 @@ datasource db {
 
 model FoodImage {
   id           String   @id @default(auto()) @map("_id") @db.ObjectId
-  foodName     String   @unique
+  foodName     String
+  userId       String?  // 🔥 Link to Restaurant ID
   originalUrl  String?
   cloudinaryUrl String?  // 🔥 The Pro CDN URL
   localPath    String?
@@ -23,6 +24,8 @@ model FoodImage {
   errorMessage String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+
+  @@unique([foodName, userId])
 }
 
 model ScraperJob {

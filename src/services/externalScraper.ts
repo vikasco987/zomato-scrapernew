@@ -1,9 +1,8 @@
 import axios from "axios";
 import pLimit from "p-limit";
 import { prisma } from "../db/index.js";
-import { scrapeFoodImages } from "../scraper/index.js";
-import { pickBestImage } from "../lib/scoring.js";
-import { uploadImageFromUrl } from "../lib/uploader.js";
+import { scrapeAndSaveFood } from "../index.js";
+import { delay } from "../scraper/utils.js";
 
 const EXTERNAL_BASE = process.env.EXTERNAL_API_BASE || "https://billing.kravy.in/api/external";
 const SECRET_KEY = process.env.SCRAPER_SECRET_KEY || "kravy_scraper_secret_2026";
@@ -49,24 +48,14 @@ export async function scrapeAndUpdateExternalMenu(userId: string, jobId?: string
             const itemId = item.id;
 
             try {
-                const searchResult = await scrapeFoodImages(dishName);
-                if (searchResult.success && searchResult.candidates.length > 0) {
-                    const winner = pickBestImage(searchResult.candidates, dishName);
-                    
-                    // 🎯 Relaxed Scoring: Baseline 20 is enough for generic food
-                    if (winner) {
-                        const cdnUrl = await uploadImageFromUrl(winner.url, dishName);
-                        if (cdnUrl) {
-                            await axios.patch(`${EXTERNAL_BASE}/menu/update/${itemId}`, { 
-                                imageUrl: cdnUrl 
-                            }, { headers, timeout: 5000 });
-                            successCount++;
-                        } else {
-                            console.error(`❌ [${dishName}] CDN_UPLOAD_FAILED`);
-                        }
-                    } else {
-                        console.warn(`⚖️ [${dishName}] REJECTED_BY_SCORING`);
-                    }
+                // 🧠 Use Central AI Orchestrator (Auto-Caches & Scores)
+                const record = await scrapeAndSaveFood(dishName, userId);
+
+                if (record && record.cloudinaryUrl) {
+                    await axios.patch(`${EXTERNAL_BASE}/menu/update/${itemId}`, { 
+                        imageUrl: record.cloudinaryUrl 
+                    }, { headers, timeout: 5000 });
+                    successCount++;
                 }
             } catch (err: any) {
                 console.error(`❌ [${dishName}] Engine Error:`, err.message);

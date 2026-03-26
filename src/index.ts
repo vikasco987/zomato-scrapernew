@@ -10,19 +10,24 @@ const MAX_RETRIES = 2;
  * 🎯 THE ULTIMATE AI PRODUCTION ORCHESTRATOR
  * MULTI-CANDIDATE -> SCORING -> BEST PICK -> DIRECT CLOUD
  */
-export async function scrapeAndSaveFood(foodName: string) {
-  console.log(`\n🚀 AI PIPELINE: [${foodName}]`);
+export async function scrapeAndSaveFood(foodName: string, userId: string | null = null, force: boolean = false) {
+  console.log(`\n🚀 AI PIPELINE: [${foodName}] (User: ${userId || 'Global'})${force ? " (FORCE RE-SCRAPE)" : ""}`);
 
   // 1. Pro Duplicate Check
-  let record = await prisma.foodImage.findUnique({ where: { foodName } });
-  if (record?.status === "completed" && record.cloudinaryUrl) {
+  let record = await prisma.foodImage.findFirst({ 
+    where: { foodName, userId } 
+  });
+
+  if (!force && record?.status === "completed" && record.cloudinaryUrl) {
     console.log(`⏩ [${foodName}] Already Live on CDN. Skipping.`);
     return record;
   }
 
   // 2. Prep Record
   if (!record) {
-    record = await prisma.foodImage.create({ data: { foodName, status: "pending" } });
+    record = await prisma.foodImage.create({ 
+      data: { foodName, userId, status: "pending" } 
+    });
   }
 
   // 3. Multi-Candidate Search (Up to 5 images)
@@ -105,4 +110,9 @@ async function main() {
   })));
 }
 
-main().catch(console.error).finally(() => prisma.$disconnect());
+// --- ENTRY POINT CHECK ---
+if (process.argv[1].endsWith('index.js')) {
+    main()
+        .catch(console.error)
+        .finally(() => prisma.$disconnect());
+}

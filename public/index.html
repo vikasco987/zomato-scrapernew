@@ -10,10 +10,12 @@
         :root { --brand-primary: #f97316; --bg-deep: #0a0b10; --card-glass: rgba(255, 255, 255, 0.03); --card-border: rgba(255, 255, 255, 0.08); }
         body { font-family: 'Outfit', sans-serif; background-color: var(--bg-deep); background-image: radial-gradient(at 0% 0%, rgba(249, 115, 22, 0.1) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.1) 0px, transparent 50%); min-height: 100vh; color: #f8fafc; }
         .glass-card { background: var(--card-glass); backdrop-filter: blur(16px); border: 1px solid var(--card-border); border-radius: 24px; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
-        .nav-tab { @apply flex items-center gap-2 px-6 py-3 rounded-2xl transition-all duration-300 font-medium whitespace-nowrap; border: 1px solid transparent; }
+        .nav-tab { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.5rem; border-radius: 1rem; transition: all 0.3s; font-weight: 500; white-space: nowrap; border: 1px solid transparent; background: transparent; color: inherit; cursor: pointer; }
         .nav-tab.active { background: linear-gradient(135deg, rgba(249, 115, 22, 0.1), rgba(251, 146, 60, 0.05)); border-color: rgba(249, 115, 22, 0.2); color: var(--brand-primary); }
         .spinner { border: 3px solid rgba(255, 255, 255, 0.1); border-top: 3px solid #f97316; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .shimmer-text { background: linear-gradient(90deg, #fff, #f97316, #fff); background-size: 200% auto; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shimmer 3s linear infinite; }
+        @keyframes shimmer { to { background-position: 200% center; } }
     </style>
 </head>
 <body class="p-6 md:p-10">
@@ -41,29 +43,25 @@
             <div id="gallery-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8"></div>
         </main>
 
-        <!-- PAGE: Sync Bridge (WITH DEEP DRILL & BULK SYNC) -->
+        <!-- PAGE: Sync Bridge -->
         <main id="page-sync" class="tab-content hidden">
             <div id="restaurantView">
                 <div id="restaurantGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16"></div>
             </div>
 
-            <!-- DEEP DRILL VIEW (STRICTLY RESTORED) -->
-            <div id="selectedUserView" class="hidden space-y-8 animate-in fade-in slide-in-from-bottom duration-500">
+            <div id="selectedUserView" class="hidden space-y-8 animate-in fade-in transition-all">
                 <button onclick="backToRestaurants()" class="text-slate-500 hover:text-white flex items-center gap-2 mb-4"> ← Back to List </button>
-                <div class="flex flex-col md:flex-row justify-between items-end gap-6 bg-white/5 p-8 rounded-[32px] border border-white/5">
-                    <div>
+                <div class="flex flex-col md:flex-row justify-between items-end gap-6 bg-white/5 p-8 rounded-[32px] border border-white/5 relative overflow-hidden">
+                    <div class="relative z-10">
                         <h3 class="text-4xl font-black" id="selectedRestoName">Restaurant Menu</h3>
                         <p class="text-orange-500 uppercase text-[10px] font-black tracking-widest mt-2" id="selectedRestoId"></p>
                     </div>
-                    <div class="flex items-center gap-4">
-                        <div class="flex items-center gap-2 bg-white/5 border border-white/10 px-4 py-3 rounded-2xl">
-                           <input type="checkbox" id="missingOnly" onchange="renderMenuList(currentMenuCache)" class="w-4 h-4 accent-orange-500">
-                           <label for="missingOnly" class="text-xs font-bold opacity-60">Missing Images Only</label>
-                        </div>
+                    <div class="flex items-center gap-4 relative z-10">
+                        <button onclick="openPreview()" class="bg-blue-600 hover:bg-blue-700 px-6 py-5 rounded-2xl font-bold transition-all shadow-xl shadow-blue-500/20"> 👁️ LIVE PREVIEW </button>
                         <button onclick="triggerAllScrape()" id="scrapeAllBtn" class="bg-orange-500 hover:bg-orange-600 px-10 py-5 rounded-2xl font-bold transition-all shadow-2xl shadow-orange-500/20"> 🚀 SYNC ENTIRE MENU </button>
                     </div>
                 </div>
-                <div id="externalMenuList" class="grid grid-cols-1 gap-4"></div>
+                <div id="externalMenuList" class="space-y-12"></div>
             </div>
         </main>
 
@@ -77,46 +75,8 @@
         </main>
     </div>
 
-    <!-- SOCKET IO CLIENT -->
-    <script src="/socket.io/socket.io.js"></script>
-    <script>
-        const socket = io();
-        socket.on("job_update", (job) => {
-            console.log("⚡ SOCKET_UPDATE:", job);
-            if(!document.getElementById('page-history').classList.contains('hidden')) {
-                pollJobs();
-            }
-            if(job.userId === currentUserId && job.status === 'completed') {
-                selectRestaurant(job.userId, document.getElementById('selectedRestoName').innerText);
-            }
-        });
-
-        async function deleteJob(id) {
-            if(!confirm('Delete this job log?')) return;
-            try {
-                await fetch(`/api/jobs/${id}`, { method: 'DELETE' });
-                pollJobs();
-            } catch (e) { alert('Delete failed'); }
-        }
-
-        async function clearAllJobs() {
-            if(!confirm('This will wipe ALL job history. Continue?')) return;
-            try {
-                await fetch('/api/jobs/clear-all', { method: 'DELETE' });
-                pollJobs();
-            } catch (e) { alert('Purge failed'); }
-        }
-
-        async function retryJob(id) {
-            try {
-                await fetch(`/api/jobs/retry/${id}`, { method: 'POST' });
-                pollJobs();
-            } catch (e) { alert('Retry failed'); }
-        }
-    </script>
-
     <!-- MODAL: MANUAL OVERRIDE -->
-    <div id="overrideModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-6">
+    <div id="overrideModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[150] hidden flex items-center justify-center p-6">
         <div class="glass-card w-full max-w-xl p-8 shadow-2xl">
             <div class="flex justify-between items-start mb-6">
                 <div> <h3 class="text-2xl font-bold" id="modalDishName">Override Asset</h3> <p class="text-slate-500 text-xs mt-1" id="modalDishId"></p> </div>
@@ -124,7 +84,7 @@
             </div>
             <div class="space-y-6">
                 <div class="p-4 bg-white/5 rounded-2xl flex items-center gap-4">
-                    <div class="flex-1"> <p class="font-bold">Option 1: Smart Re-scrape</p> <p class="text-xs text-slate-500">Forced context search.</p> </div>
+                    <div class="flex-1"> <p class="font-bold">Option 1: Smart Re-scrape</p> <p class="text-xs text-slate-500">Forced AI extraction.</p> </div>
                     <button onclick="handleRescrape()" id="rescrapeBtn" class="bg-blue-600 px-4 py-2 rounded-xl text-xs font-bold"> 🔄 RE-SCRAPE </button>
                 </div>
                 <div class="p-4 bg-white/5 rounded-2xl">
@@ -136,10 +96,39 @@
         </div>
     </div>
 
+    <!-- MODAL: LIVE PREVIEW -->
+    <div id="previewModal" class="fixed inset-0 bg-black/98 backdrop-blur-3xl z-[200] hidden overflow-y-auto animate-in fade-in duration-300">
+        <div class="max-w-6xl mx-auto py-20 px-8 relative">
+            <button onclick="closePreview()" class="fixed top-8 right-8 text-white/40 hover:text-white bg-white/5 hover:bg-red-500/20 p-4 rounded-full backdrop-blur-3xl border border-white/5 transition-all z-[210]">✕ Close Preview</button>
+            <div class="text-center mb-24">
+                <span class="px-5 py-2 bg-orange-500 rounded-full text-[10px] font-black uppercase tracking-[0.3em] shadow-2xl shadow-orange-500/40 mb-8 inline-block">PRODUCTION READY VIEW</span>
+                <h2 id="previewRestoName" class="text-7xl font-black mb-4 tracking-tighter">Restaurant Menu</h2>
+                <div class="flex justify-center items-center gap-4 opacity-50">
+                    <span id="previewItemCount" class="text-[10px] font-bold uppercase tracking-widest">0 ITEMS</span>
+                    <span>•</span>
+                    <span class="text-[10px] font-bold uppercase tracking-widest text-emerald-400">Optimized by Kravy AI</span>
+                </div>
+            </div>
+            <div id="previewGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12"></div>
+            <footer class="mt-32 pt-12 border-t border-white/5 text-center opacity-30 italic">
+                <p class="text-sm font-bold tracking-[0.5em]">KRAVY AI ENGINE • 2026</p>
+            </footer>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
     <script>
+        const socket = io();
         let allGalleryItems = [];
         let currentUserId = '';
         let currentRestaurants = [];
+        let currentMenuCache = [];
+        let currentOverrideId = '';
+
+        socket.on("job_update", (job) => {
+            if(!document.getElementById('page-history').classList.contains('hidden')) pollJobs();
+            if(job.userId === currentUserId && job.status === 'completed') selectRestaurant(job.userId, document.getElementById('selectedRestoName').innerText);
+        });
 
         async function switchTab(tabId) {
             document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
@@ -157,24 +146,24 @@
                 allGalleryItems = await res.json();
                 renderGallery(allGalleryItems);
                 renderStats();
-            } catch (e) { }
+            } catch (e) {}
         }
 
         function renderGallery(items) {
             const container = document.getElementById('gallery-container');
             if (!items || items.length === 0) {
-                container.innerHTML = '<div class="col-span-full py-20 text-center opacity-50">No processed assets found yet. Start a sync!</div>';
+                container.innerHTML = '<div class="col-span-full py-20 text-center opacity-50 italic">No processed assets found yet.</div>';
                 return;
             }
             container.innerHTML = items.map(item => `
-                <div class="glass-card group overflow-hidden relative">
-                    <img src="${item.cloudinaryUrl}" class="aspect-[4/3] w-full object-cover">
+                <div class="glass-card group overflow-hidden relative border-white/5 hover:border-orange-500/30">
+                    <img src="${item.cloudinaryUrl}" class="aspect-[4/3] w-full object-cover group-hover:scale-105 transition-all duration-500">
                     <div class="p-6">
                         <div class="flex justify-between items-start">
                             <h3 class="font-bold truncate text-lg">${item.foodName}</h3>
-                            <button onclick="openOverrideModal('${item.id}', '${item.foodName.replace(/'/g, "\\'")}')" class="p-2 hover:bg-white/10 rounded-lg transition-all text-slate-500 hover:text-white">⚙️</button>
+                            <button onclick="openOverrideModal('${item.id}', '${item.foodName.replace(/'/g, "\\'")}')" class="p-2 hover:bg-white/10 rounded-lg text-slate-500 hover:text-white">⚙️</button>
                         </div>
-                        <div class="flex items-center gap-3 mt-4 opacity-50 text-[10px] font-black uppercase tracking-widest">
+                        <div class="flex items-center gap-3 mt-4 opacity-40 text-[10px] font-black uppercase tracking-[0.2em]">
                             <span>Score: ${item.confidence || 0}%</span>
                             <span>•</span>
                             <span class="${item.isManual ? 'text-blue-400' : ''}">${item.isManual ? 'Manual' : 'Sync'}</span>
@@ -186,31 +175,25 @@
 
         async function loadRestaurants() {
             const grid = document.getElementById('restaurantGrid');
-            grid.innerHTML = '<div class="col-span-full py-10 opacity-50 text-center">Contacting External Billing...</div>';
+            grid.innerHTML = '<div class="col-span-full py-10 opacity-30 text-center italic tracking-widest">CONNECTING TO BILLING...</div>';
             try {
                 const res = await fetch('/api/external-users');
                 currentRestaurants = await res.json();
-                renderRestaurants(currentRestaurants);
-            } catch (e) { grid.innerHTML = '<div class="col-span-full text-red-500">Billing server offline.</div>'; }
-        }
-
-        function renderRestaurants(list) {
-            document.getElementById('restaurantGrid').innerHTML = list.map(r => `
-                <div class="glass-card p-8 flex flex-col justify-between group">
-                    <div>
-                        <div class="flex justify-between items-start mb-4">
-                            <div class="p-3 bg-white/10 rounded-xl text-orange-500">🏢</div>
-                            <span class="px-3 py-1 bg-white/5 text-[10px] font-bold rounded-full uppercase">${r.missingImages || 0} Open</span>
+                document.getElementById('restaurantGrid').innerHTML = currentRestaurants.map(r => `
+                    <div class="glass-card p-8 flex flex-col justify-between group hover:bg-white/[0.02]">
+                        <div>
+                            <div class="flex justify-between items-start mb-4">
+                                <div class="p-3 bg-white/10 rounded-xl text-orange-500">🏢</div>
+                                <span class="px-3 py-1 bg-white/5 text-[10px] font-black rounded-full uppercase tracking-tighter">${r.missingImages || 0} Open</span>
+                            </div>
+                            <h4 class="text-2xl font-black group-hover:text-orange-500 transition-all">${r.name || 'Restaurant'}</h4>
+                            <p class="text-[10px] text-slate-600 font-mono truncate mt-2 mb-6 opacity-50">${r.id}</p>
                         </div>
-                        <h4 class="text-2xl font-bold group-hover:text-orange-500 transition-colors">${r.name || 'Restaurant'}</h4>
-                        <p class="text-[10px] text-slate-600 font-mono truncate mt-2 mb-6">${r.id}</p>
+                        <button onclick="selectRestaurant('${r.id}', '${r.name}')" class="w-full bg-white/5 border border-white/5 py-4 rounded-xl font-bold transition-all hover:bg-orange-500 hover:border-transparent"> INSPECT MENU </button>
                     </div>
-                    <button onclick="selectRestaurant('${r.id}', '${r.name}')" class="w-full bg-white/5 border border-white/5 py-4 rounded-xl font-bold transition-all hover:bg-orange-500"> Inspect Menu </button>
-                </div>
-            `).join('');
+                `).join('');
+            } catch (e) { grid.innerHTML = '<div class="col-span-full text-red-500 text-center">Billing server offline.</div>'; }
         }
-
-        let currentMenuCache = [];
 
         async function selectRestaurant(id, name) {
             currentUserId = id;
@@ -218,90 +201,139 @@
             document.getElementById('selectedRestoName').innerText = name || id;
             document.getElementById('selectedRestoId').innerText = `BILLING ID: ${id}`;
             document.getElementById('selectedUserView').classList.remove('hidden');
-            
             const list = document.getElementById('externalMenuList');
-            list.innerHTML = '<p class="p-20 opacity-50 text-center">Linking Live Assets...</p>';
+            list.innerHTML = '<p class="p-20 opacity-30 text-center italic tracking-[0.3em]">LINKING LIVE ASSETS...</p>';
             try {
                 const res = await fetch(`/api/external-menu/${id}`);
                 currentMenuCache = await res.json();
                 renderMenuList(currentMenuCache);
-            } catch (e) { list.innerHTML = '<p class="text-red-500 p-20">Link Expired.</p>'; }
+            } catch (e) { list.innerHTML = '<p class="text-red-500 p-20 text-center">Link Failed.</p>'; }
         }
 
         function renderMenuList(items) {
-            const missingOnly = document.getElementById('missingOnly').checked;
-            const filtered = missingOnly ? items.filter(i => !i.image) : items;
-            
-            document.getElementById('externalMenuList').innerHTML = filtered.map(i => `
-                <div class="glass-card p-6 flex items-center justify-between group" id="item-card-${i.id}">
+            const missing = items.filter(i => !i.image);
+            const synced = items.filter(i => i.image);
+            const list = document.getElementById('externalMenuList');
+            let html = '';
+
+            if(missing.length > 0) {
+                html += `<div class="mt-8 mb-4 flex items-center gap-4"><span class="w-3 h-3 rounded-full bg-red-500 animate-pulse"></span><h5 class="text-xs font-black uppercase tracking-[0.3em] opacity-40">OPEN SYNC TASKS (${missing.length})</h5></div>
+                <div class="grid grid-cols-1 gap-4 mb-16">${missing.map(i => renderItemRow(i, false)).join('')}</div>`;
+            }
+            if(synced.length > 0) {
+                html += `<div class="mt-8 mb-4 flex items-center gap-4"><span class="w-3 h-3 rounded-full bg-emerald-500"></span><h5 class="text-xs font-black uppercase tracking-[0.3em] opacity-40">PRODUCTION READY ASSETS (${synced.length})</h5></div>
+                <div class="grid grid-cols-1 gap-4">${synced.map(i => renderItemRow(i, true)).join('')}</div>`;
+            }
+            if(items.length === 0) html = '<p class="p-20 opacity-30 text-center italic tracking-widest">No menu items found.</p>';
+            list.innerHTML = html;
+        }
+
+        function renderItemRow(i, isSynced) {
+            return `
+                <div class="glass-card p-6 flex items-center justify-between group hover:bg-white/[0.02]" id="item-card-${i.id}">
                     <div class="flex items-center gap-6">
-                        <div class="w-20 h-20 bg-white/5 rounded-2xl overflow-hidden flex items-center justify-center border border-white/5" id="item-img-${i.id}">
-                            ${i.image ? `<img src="${i.image}" class="w-full h-full object-cover">` : '<span class="text-xl opacity-20">🍽️</span>'}
+                        <div class="w-24 h-24 bg-white/5 rounded-2xl overflow-hidden flex items-center justify-center border border-white/5 shadow-inner" id="item-img-${i.id}">
+                            ${i.image ? `<img src="${i.image}" class="w-full h-full object-cover">` : '<span class="text-2xl opacity-10">🍱</span>'}
                         </div>
-                        <div>
+                        <div class="text-left">
                             <p class="text-xl font-bold">${i.name}</p>
-                            <div id="item-status-${i.id}" class="mt-1">
-                                ${i.image ? '<span class="bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded text-[10px] font-bold">✓ SYNCED</span>' 
-                                          : '<span class="bg-red-500/20 text-red-500 px-2 py-0.5 rounded text-[10px] font-bold">✕ MISSING</span>'}
-                            </div>
+                            <div id="item-status-${i.id}" class="mt-1">${isSynced ? '<span class="text-emerald-400 text-[10px] font-black uppercase tracking-widest">✓ VERIFIED</span>' : '<span class="text-red-500 text-[10px] font-black uppercase tracking-widest">✕ MISSING</span>'}</div>
                         </div>
                     </div>
                     <div id="item-actions-${i.id}">
-                        <button onclick="syncSingleItem('${i.id}', '${i.name}')" class="bg-white/5 px-6 py-2 rounded-xl text-xs font-bold hover:bg-orange-500"> SYNC NOW </button>
+                        ${isSynced ? `<button onclick="openSyncOverride('${i.id}', '${i.name}')" class="p-4 bg-white/5 hover:bg-white/10 rounded-2xl text-slate-500 hover:text-white border border-white/5">⚙️</button>`
+                                   : `<button onclick="syncSingleItem('${i.id}', '${i.name}')" class="bg-orange-500 hover:bg-orange-600 px-8 py-3 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-orange-500/20"> SYNC NOW </button>`}
                     </div>
                 </div>
-            `).join('');
+            `;
+        }
+
+        async function openSyncOverride(id, name) {
+            try {
+                const res = await fetch('/api/foods');
+                const foods = await res.json();
+                const matched = foods.find(f => f.foodName === name);
+                if(matched) openOverrideModal(matched.id, name);
+                else alert('Asset meta-data missing. Sync once to link.');
+            } catch (e) {}
         }
 
         async function syncSingleItem(itemId, dishName) {
             const actions = document.getElementById(`item-actions-${itemId}`);
             const statusBox = document.getElementById(`item-status-${itemId}`);
             actions.innerHTML = '<div class="spinner"></div>';
-            statusBox.innerHTML = '<span class="text-[10px] text-blue-400 font-bold animate-pulse">🤖 AI SYNC...</span>';
+            statusBox.innerHTML = '<span class="text-[10px] text-blue-400 font-bold animate-pulse uppercase tracking-[0.2em]">🤖 AI SYNCING...</span>';
             try {
-                const res = await fetch('/api/scrape-single', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ dish: dishName, externalId: itemId })
-                });
+                const res = await fetch('/api/scrape-single', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ dish: dishName, externalId: itemId }) });
                 const data = await res.json();
                 if(data.success) {
-                    document.getElementById(`item-img-${itemId}`).innerHTML = `<img src="${data.url}" class="w-full h-full object-cover animate-in fade-in">`;
-                    statusBox.innerHTML = '<span class="bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded text-[10px] font-bold">✓ FIXED</span>';
+                    document.getElementById(`item-img-${itemId}`).innerHTML = `<img src="${data.url}" class="w-full h-full object-cover animate-in fade-in transition-all duration-1000">`;
+                    statusBox.innerHTML = '<span class="text-emerald-400 text-[10px] font-black uppercase tracking-widest">✓ FIXED</span>';
                 }
             } catch (e) { statusBox.innerHTML = '<span class="text-red-500 text-[10px] font-bold">FAILED</span>'; }
-            finally { actions.innerHTML = '<button class="text-emerald-500 px-6 py-2 font-bold text-xs">DONE</button>'; }
+            finally { actions.innerHTML = '<button class="text-emerald-500 px-6 py-2 font-black text-xs uppercase tracking-widest">DONE</button>'; }
         }
 
         async function triggerAllScrape() {
-            if(!confirm('This will trigger bulk AI extraction for all missing images. Proceed?')) return;
-            const btn = document.getElementById('scrapeAllBtn');
-            btn.innerHTML = '⚡ DISPATCHING AI...'; btn.disabled = true;
+            if(!confirm('Bulk AI extraction will start. Continue?')) return;
+            const btn = document.getElementById('scrapeAllBtn'); btn.innerHTML = '⚡ DISPATCHING...'; btn.disabled = true;
             try {
-                const res = await fetch('/api/scrape-external', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ userId: currentUserId })
-                });
+                const res = await fetch('/api/scrape-external', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: currentUserId }) });
                 const data = await res.json();
-                if(data.success) { switchTab('history'); alert('Bulk sync job dispatched! Monitor in Jobs tab.'); }
+                if(data.success) { switchTab('history'); alert('Bulk job live!'); }
             } catch (e) { alert('External bridge error'); }
             finally { btn.innerHTML = '🚀 SYNC ENTIRE MENU'; btn.disabled = false; }
         }
 
-        function backToRestaurants() {
-            document.getElementById('selectedUserView').classList.add('hidden');
-            document.getElementById('restaurantView').classList.remove('hidden');
+        function openPreview() {
+            const list = currentMenuCache;
+            const name = document.getElementById('selectedRestoName').innerText;
+            document.getElementById('previewRestoName').innerText = name;
+            document.getElementById('previewItemCount').innerText = `${list.length} ITEMS DETECTED`;
+            const grid = document.getElementById('previewGrid');
+            grid.innerHTML = list.map(item => `
+                <div class="group relative bg-[#0D0E14] rounded-[32px] overflow-hidden border border-white/[0.05] transition-all hover:scale-[1.02] hover:shadow-2xl hover:shadow-orange-500/10 h-full flex flex-col">
+                    <div class="aspect-square w-full overflow-hidden bg-white/5 relative">
+                        ${item.image ? `<img src="${item.image}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-[1.5s]">` : `<div class="w-full h-full flex items-center justify-center text-4xl opacity-20">🍽️</div>`}
+                        <div class="absolute top-4 left-4"><span class="w-5 h-5 rounded border ${item.name.toLowerCase().includes('chicken') || item.name.toLowerCase().includes('mutton') ? 'border-red-500' : 'border-emerald-500'} flex items-center justify-center p-[2px] bg-black/40 backdrop-blur-md"><span class="w-full h-full rounded-full ${item.name.toLowerCase().includes('chicken') || item.name.toLowerCase().includes('mutton') ? 'bg-red-500' : 'bg-emerald-500'}"></span></span></div>
+                    </div>
+                    <div class="p-8 flex-1 flex flex-col justify-between">
+                        <div><h3 class="text-xl font-black mb-2 group-hover:text-orange-500 transition-colors uppercase tracking-tight">${item.name}</h3><p class="text-[10px] uppercase font-black opacity-30 tracking-[0.2em] mb-4">${item.category || 'Chef Specialties'}</p></div>
+                        <div class="flex justify-between items-center mt-auto"><p class="text-2xl font-black text-white/90">₹${item.price || '299'}</p><button class="bg-white/5 hover:bg-orange-500 px-6 py-2 rounded-xl text-[10px] font-black transition-all border border-white/5 uppercase tracking-widest tracking-tighter">ORDER NOW</button></div>
+                    </div>
+                </div>`).join('');
+            document.getElementById('previewModal').classList.remove('hidden');
+            document.body.style.overflow = 'hidden'; 
         }
 
-        function renderStats() {
-            const completed = allGalleryItems.filter(f => f.status === 'completed').length;
-            document.getElementById('stats-grid').innerHTML = `
-                <div class="glass-card p-6 font-bold text-center"> <p class="text-[10px] opacity-50 lowercase">Assets</p> <p class="text-3xl">${allGalleryItems.length}</p> </div>
-                <div class="glass-card p-6 font-bold text-center"> <p class="text-[10px] opacity-50 uppercase text-emerald-400">Optimized</p> <p class="text-3xl">${completed}</p> </div>
-                <div class="glass-card p-6 font-bold text-center"> <p class="text-[10px] opacity-50 uppercase text-red-500">Failed</p> <p class="text-3xl">${allGalleryItems.filter(f => f.status==='failed').length}</p> </div>
-                <div class="glass-card p-6 font-bold text-center"> <p class="text-[10px] opacity-50 uppercase text-orange-500">Avg Acc</p> <p class="text-3xl">99%</p> </div>
-            `;
+        function closePreview() { document.getElementById('previewModal').classList.add('hidden'); document.body.style.overflow = 'auto'; }
+        function backToRestaurants() { document.getElementById('selectedUserView').classList.add('hidden'); document.getElementById('restaurantView').classList.remove('hidden'); }
+        function closeModal() { document.getElementById('overrideModal').classList.add('hidden'); }
+
+        async function handleRescrape() {
+            if(!currentOverrideId) return;
+            const btn = document.getElementById('rescrapeBtn');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '⚡ SCRAPING...'; btn.disabled = true;
+            try {
+                const res = await fetch(`/api/rescrape/${currentOverrideId}`, { method: 'POST' });
+                const data = await res.json();
+                if(data.id) { alert('Re-scrape successful! 🚀'); fetchData(); closeModal(); } else alert('Re-scrape failed. 🔴');
+            } catch (e) { alert('Network error'); }
+            finally { btn.innerHTML = originalText; btn.disabled = false; }
+        }
+
+        async function handleManualUpload(event) {
+            const file = event.target.files[0]; if(!file || !currentOverrideId) return;
+            const formData = new FormData(); formData.append('image', file);
+            const label = document.querySelector('label[for="manualUploadInput"]');
+            const originalLabel = label.innerHTML; label.innerHTML = '<div class="spinner"></div>';
+            try {
+                const res = await fetch(`/api/upload-manual/${currentOverrideId}`, { method: 'POST', body: formData });
+                const data = await res.json();
+                if(data.success) { alert('Upload successful! ✅'); fetchData(); closeModal(); } else alert('Upload failed: ' + (data.error || 'Unknown error'));
+            } catch (e) { alert('Upload error'); }
+            finally { label.innerHTML = originalLabel; }
         }
 
         async function pollJobs() {
@@ -311,41 +343,39 @@
                 const jobs = await res.json();
                 container.innerHTML = jobs.map(j => {
                    const remaining = j.totalItems - j.processedCount;
-                   const estSeconds = remaining * 2.5; // Average 2.5s per item in Turbo Local
-                   const etaStr = remaining > 0 ? `ETA: ${Math.ceil(estSeconds/60)}m ${Math.ceil(estSeconds%60)}s` : 'DONE';
-                   
-                   return `
-                    <div class="glass-card p-8 flex items-center justify-between group">
+                   const etaStr = remaining > 0 ? `ETA: ${Math.ceil(remaining * 2.5 / 60)}m` : 'DONE';
+                   return `<div class="glass-card p-8 flex items-center justify-between group">
                         <div class="flex-1">
                             <h4 class="text-xl font-bold">${j.userId}</h4>
-                            <div class="flex items-center gap-4">
-                               <p class="text-[10px] opacity-50 mt-1 uppercase tracking-tighter">${j.status} • ${j.processedCount}/${j.totalItems} Items</p>
-                               ${j.status === 'processing' ? `<span class="text-[10px] text-orange-400 font-bold ml-2">${etaStr}</span>` : ''}
-                            </div>
-                            ${j.error ? `<p class="text-[10px] text-red-500 mt-2">${j.error}</p>` : ''}
+                            <p class="text-[10px] opacity-40 uppercase tracking-widest mt-1">${j.status} • ${j.processedCount}/${j.totalItems} Items • ${etaStr}</p>
                         </div>
                         <div class="flex items-center gap-6">
-                            <div class="w-32 bg-white/5 h-2 rounded-full overflow-hidden">
-                                <div class="bg-orange-500 h-full transition-all duration-500" style="width: ${j.totalItems > 0 ? (j.processedCount/j.totalItems)*100 : 0}%"></div>
-                            </div>
+                            <div class="w-32 bg-white/5 h-2 rounded-full overflow-hidden"><div class="bg-orange-500 h-full transition-all duration-500" style="width: ${j.totalItems > 0 ? (j.processedCount/j.totalItems)*100 : 0}%"></div></div>
                             <div class="flex gap-2">
-                                ${ (j.status === 'failed' || j.status === 'processing') ? `<button onclick="retryJob('${j.id}')" class="px-4 py-2 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white rounded-xl text-[10px] font-bold transition-all">🔄 FORCE RETRY</button>` : ''}
-                                <button onclick="deleteJob('${j.id}')" class="p-3 bg-red-500/10 text-red-400 hover:bg-red-500 rounded-xl opacity-0 group-hover:opacity-100 transition-all">🗑️</button>
+                                ${ (j.status === 'failed' || j.status === 'processing') ? `<button onclick="retryJob('${j.id}')" class="px-4 py-2 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white rounded-xl text-[10px] font-black uppercase">🔄 RETRY</button>` : ''}
+                                <button onclick="deleteJob(event, '${j.id}')" class="p-3 bg-red-500/10 text-red-400 hover:bg-red-500 rounded-xl opacity-0 group-hover:opacity-100 transition-all">🗑️</button>
                             </div>
                         </div>
-                    </div>
-                   `;
+                    </div>`;
                 }).join('');
                 if (jobs.some(j => j.status === 'processing' || j.status === 'queued')) setTimeout(pollJobs, 4000);
-            } catch (e) { }
+            } catch (e) {}
         }
 
-        function openOverrideModal(id, name) {
-            currentOverrideId = id;
-            document.getElementById('modalDishName').innerText = name;
-            document.getElementById('overrideModal').classList.remove('hidden');
+        async function deleteJob(e, id) {
+            if(!confirm('Delete?')) return;
+            try { await fetch(`/api/jobs/${id}`, { method: 'DELETE' }); pollJobs(); } catch(e){}
         }
-        function closeModal() { document.getElementById('overrideModal').classList.add('hidden'); }
+
+        function renderStats() {
+            const completed = allGalleryItems.filter(f => f.status === 'completed').length;
+            document.getElementById('stats-grid').innerHTML = `
+                <div class="glass-card p-6 font-bold text-center"> <p class="text-[10px] opacity-50 uppercase tracking-widest">Assets</p> <p class="text-3xl font-black">${allGalleryItems.length}</p> </div>
+                <div class="glass-card p-6 font-bold text-center"> <p class="text-[10px] opacity-50 uppercase tracking-widest text-emerald-400">Fixed</p> <p class="text-3xl font-black">${completed}</p> </div>
+                <div class="glass-card p-6 font-bold text-center text-red-500"> <p class="text-[10px] opacity-50 uppercase tracking-widest">Issues</p> <p class="text-3xl font-black">${allGalleryItems.filter(f => f.status==='failed').length}</p> </div>
+                <div class="glass-card p-6 font-bold text-center"> <p class="text-[10px] opacity-50 uppercase tracking-widest text-orange-500">Uptime</p> <p class="text-3xl font-black">99%</p> </div>
+            `;
+        }
 
         fetchData();
         loadRestaurants();
