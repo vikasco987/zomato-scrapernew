@@ -17,12 +17,14 @@ Ensure these are added in the **Environment** tab of your Render service:
 - `DATABASE_URL`: Your MongoDB Connection String.
 - `CLOUDINARY_URL`: Or individual Cloudinary API keys.
 - `SCRAPER_SECRET_KEY`: `kravy_scraper_secret_2026`
+- `PROXY_LIST`: (Optional) Comma separated proxy list. e.g. `http://user:pass@host1:port,http://user:pass@host2:port`
 - `PORT`: `3000` (Render usually sets this automatically).
 
-## 3. Puppeteer Considerations
+## 3. Puppeteer & Proxy Rotation
 
-- Render's **Web Service** environment (Ubuntu) supports Puppeteer, but it requires the official **Puppeteer Buildpack** or a Dockerfile.
-- **Tip:** If using Render's standard environment, add the `PUPPETEER_SKIP_CHROMIUM_DOWNLOAD` variable if you're using an external browser, BUT for this project, just let Render install Chromium.
+- Render's **Web Service** environment (Ubuntu) supports Puppeteer.
+- **Proxy Chain:** The system now automatically "Anonymizes" proxy credentials, so you can safely use paid residential proxies.
+- **Smart Jitter:** Scraper adds random 1-4s delays to mimic human interaction.
 
 ## 4. Verification
 
