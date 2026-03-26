@@ -66,6 +66,23 @@
         <main id="page-history" class="tab-content hidden"><div id="liveJobsList" class="grid grid-cols-1 gap-6"></div></main>
     </div>
 
+    <!-- SOCKET IO CLIENT -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        socket.on("job_update", (job) => {
+            console.log("⚡ SOCKET_UPDATE:", job);
+            // Update the live jobs tab if active
+            if(!document.getElementById('page-history').classList.contains('hidden')) {
+                pollJobs();
+            }
+            // If the job is for the current restaurant, update its sync status
+            if(job.userId === currentUserId && job.status === 'completed') {
+                selectRestaurant(job.userId, document.getElementById('selectedRestoName').innerText);
+            }
+        });
+    </script>
+
     <!-- MODAL: MANUAL OVERRIDE -->
     <div id="overrideModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-6">
         <div class="glass-card w-full max-w-xl p-8 shadow-2xl">

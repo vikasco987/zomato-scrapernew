@@ -1,14 +1,19 @@
 import express from "express";
 import cors from "cors";
 import path from "path";
+import { fileURLToPath } from "url";
+import { createServer } from "http";
 import multer from "multer";
 import { prisma } from "./db/index.js";
 import { queueManager } from "./lib/queueManager.js";
 import { scrapeAndSaveFood } from "./index.js";
 import { v2 as cloudinary } from "cloudinary";
 import axios from "axios";
+import { initSocket } from "./lib/socket.js";
 
 const app = express();
+const httpServer = createServer(app);
+initSocket(httpServer);
 app.use(express.json());
 app.use(cors());
 
@@ -162,6 +167,6 @@ app.get("/api/test-scraper", async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+httpServer.listen(PORT, () => {
     console.log(`\n🔱 KRAVY DASHBOARD: Running on http://localhost:${PORT}`);
 });

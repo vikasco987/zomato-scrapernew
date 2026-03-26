@@ -1,10 +1,11 @@
 import { prisma } from "../db/index.js";
 import { scrapeAndUpdateExternalMenu } from "../services/externalScraper.js";
 import { delay } from "../scraper/utils.js";
+import { emitUpdate } from "./socket.js";
 
 /**
  * 🚀 QUEUE MANAGER
- * Sequential processing of scraping jobs to avoid rate limits & crashes.
+ * Sequential processing of scraping jobs with Real-world Jitter.
  */
 class QueueManager {
   private isProcessing = false;
@@ -14,11 +15,8 @@ class QueueManager {
       data: { userId, status: "queued" }
     });
     
-    console.log(`📡 Job [${job.id}] Queued for User: ${userId}`);
-    
-    // Trigger worker if not already running
+    emitUpdate("job_update", job);
     this.processQueue();
-    
     return job;
   }
 
@@ -27,45 +25,38 @@ class QueueManager {
     this.isProcessing = true;
 
     while (true) {
-      // 1. Find the next queued job
       const nextJob = await prisma.scraperJob.findFirst({
         where: { status: "queued" },
         orderBy: { createdAt: "asc" }
       });
 
       if (!nextJob) {
-        console.log("🏁 Queue empty. Worker standing by...");
         this.isProcessing = false;
         break;
       }
 
-      // 2. Set as Processing
-      console.log(`⚙️ Processing Job [${nextJob.id}] for User: ${nextJob.userId}`);
-      await prisma.scraperJob.update({
+      // Update Processing State
+      const updatedJob = await prisma.scraperJob.update({
         where: { id: nextJob.id },
         data: { status: "processing" }
       });
+      emitUpdate("job_update", updatedJob);
 
       try {
-        // 3. Execute the Scraper (Now with progress tracking)
         await scrapeAndUpdateExternalMenu(nextJob.userId, nextJob.id);
-
-        // 4. Mark as Completed
-        await prisma.scraperJob.update({
+        const finalJob = await prisma.scraperJob.update({
           where: { id: nextJob.id },
           data: { status: "completed" }
         });
-        console.log(`✅ Job [${nextJob.id}] DONE! ✨`);
-
+        emitUpdate("job_update", finalJob);
       } catch (err: any) {
-        console.error(`❌ Job [${nextJob.id}] FAILED: ${err.message}`);
-        await prisma.scraperJob.update({
+        const errorJob = await prisma.scraperJob.update({
           where: { id: nextJob.id },
           data: { status: "failed", error: err.message }
         });
+        emitUpdate("job_update", errorJob);
       }
-
-      await delay(2000); // Cool down before next job
+      await delay(2000);
     }
   }
   async getJobs() {
