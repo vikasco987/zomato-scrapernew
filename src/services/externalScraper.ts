@@ -39,6 +39,7 @@ export async function scrapeAndUpdateExternalMenu(userId: string, jobId?: string
     console.log(`⚡ PIEPLINE: Processing ${items.length} items in PARALLEL (Concurrency: 5)...`);
 
     let processedCount = 0;
+    let successCount = 0;
 
     // 🏆 PARALLEL EXECUTION MAP
     const results = await Promise.all(items.map((item: any) => 
@@ -46,56 +47,39 @@ export async function scrapeAndUpdateExternalMenu(userId: string, jobId?: string
             const dishName = item.name;
             const itemId = item.id;
 
-            // 🛑 CHECK FOR CANCELLATION
-            if (jobId) {
-                const currentJob = await prisma.scraperJob.findUnique({ where: { id: jobId } });
-                if (currentJob?.error === "Cancelled by User") return { status: 'cancelled' };
-            }
-
             try {
-                // 🔍 SHARP SEARCH (indian food hd query)
-                const optimizedQuery = `${dishName} food dish realistic hd`;
-                const searchResult = await scrapeFoodImages(optimizedQuery);
-
+                // 🔍 AI SEARCH
+                const searchResult = await scrapeFoodImages(dishName);
                 if (searchResult.success && searchResult.candidates.length > 0) {
                     const winner = pickBestImage(searchResult.candidates, dishName);
-                    
                     if (winner) {
-                        // ☁️ CLOUDINARY UPLOAD (Optimized Auto:Eco)
                         const cdnUrl = await uploadImageFromUrl(winner.url, dishName);
-                        
                         if (cdnUrl) {
-                            // 📬 UPDATE EXTERNAL DB
                             await axios.patch(`${EXTERNAL_BASE}/menu/update/${itemId}`, { 
                                 imageUrl: cdnUrl 
                             }, { headers, timeout: 5000 });
-
-                            processedCount++;
-                            
-                            // 📊 Update Progress
-                            if (jobId) {
-                                await prisma.scraperJob.update({
-                                    where: { id: jobId },
-                                    data: { processedCount }
-                                });
-                            }
-                            // Less noisy logging (Mod 5)
-                            if (processedCount % 5 === 0) console.log(`✨ Progress: ${processedCount}/${items.length} Done.`);
-                            return { status: 'done', dishName };
+                            successCount++;
                         }
                     }
+                } else {
+                    console.warn(`⚠️ [${dishName}] Search empty. Candidates: 0`);
                 }
-                return { status: 'failed', dishName };
             } catch (err: any) {
-                console.error(`❌ Item [${dishName}] failed:`, err.message);
-                return { status: 'error', dishName };
+                console.error(`❌ Item [${dishName}] error:`, err.message);
+            } finally {
+                processedCount++;
+                if (jobId) {
+                    await prisma.scraperJob.update({
+                        where: { id: jobId },
+                        data: { processedCount }
+                    });
+                }
             }
         })
     ));
 
-    const totalDone = results.filter(r => r.status === 'done').length;
-    console.log(`\n🏁 PIPELINE COMPLETE: ${totalDone}/${items.length} Items Live. 🔥 Speed Up Success!`);
-    return { success: true, processed: totalDone };
+    console.log(`\n🏁 PIPELINE COMPLETE: ${successCount}/${items.length} Items Live.`);
+    return { success: true, processed: successCount };
 
   } catch (err: any) {
     console.error("❌ Bridge Pipeline Error:", err.message);
