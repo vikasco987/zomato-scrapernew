@@ -1,6 +1,5 @@
 import puppeteer from 'puppeteer-extra';
 import StealthPlugin from 'puppeteer-extra-plugin-stealth';
-import { delay } from './utils.js';
 
 // @ts-ignore
 puppeteer.use(StealthPlugin());
@@ -13,48 +12,55 @@ interface ScrapeResult {
 
 /**
  * 🛠️ PRODUCTION SCRAPER (MULTI-CANDIDATE MODE)
- * Fetches top 5 images from search engines for the AI Scoring Engine.
+ * Uses high-speed selector waiting (no arbitrary delays)
  */
 export async function scrapeFoodImages(foodName: string): Promise<ScrapeResult> {
   // @ts-ignore
-  const browser = await (puppeteer as any).launch({ headless: true });
+  const browser = await (puppeteer as any).launch({ 
+    headless: "new",
+    args: ['--no-sandbox', '--disable-setuid-sandbox'] 
+  });
   const page = await browser.newPage();
   
+  // 🔥 Time-to-Live settings
+  await page.setDefaultNavigationTimeout(15000);
+
   try {
     const query = encodeURIComponent(`${foodName} indian food hd`);
     const searchUrl = `https://duckduckgo.com/?q=${query}&iax=images&ia=images`;
 
-    console.log(`🚀 Searching DuckDuckGo for Candidates: ${foodName}...`);
-    await page.goto(searchUrl, { waitUntil: 'networkidle2' });
-    await delay(3000);
+    await page.goto(searchUrl, { waitUntil: 'domcontentloaded' });
+    
+    // ⚡ FASTER: Wait for selector instead of delay
+    try {
+        await page.waitForSelector('.tile--img__img', { timeout: 4000 });
+    } catch (e) {
+        // Fallback or ignore
+    }
 
-    // 🏆 Extraction logic for multiple high-res candidates
     const candidates = await page.evaluate(() => {
       const imgs = Array.from(document.querySelectorAll('.tile--img__img'));
-      return imgs.slice(0, 5).map(img => {
-        const parent = img.closest('.tile--img');
-        const meta = parent?.getAttribute('data-id'); // DDG uses data-id for metadata
-        
-        // Basic parser for DDG's metadata structure if possible
-        // (For simplicity, we take the src if metadata parsing is complex in headless)
-        return {
+      return imgs.slice(0, 5).map(img => ({
            url: (img as HTMLImageElement).src || "",
-           width: 500, // Fallback width
-           height: 500 // Fallback height
-        };
-      });
+           width: 500,
+           height: 500
+      }));
     });
 
     if (candidates.length === 0) {
-      console.warn("⚠️ DuckDuckGo returned 0. Trying Bing Fallback...");
-      const bingUrl = `https://www.bing.com/images/search?q=${query}&form=HDRSC2&first=1&tsc=ImageHoverTitle`;
-      await page.goto(bingUrl, { waitUntil: 'networkidle2' });
-      await delay(3000);
+      const bingUrl = `https://www.bing.com/images/search?q=${query}&first=1`;
+      await page.goto(bingUrl, { waitUntil: 'domcontentloaded' });
+      
+      try {
+        await page.waitForSelector('.iusc', { timeout: 4000 });
+      } catch (e) {}
 
       const bingCandidates = await page.evaluate(() => {
         const results = Array.from(document.querySelectorAll('.iusc'));
         return results.slice(0, 5).map(res => {
-          const metadata = JSON.parse(res.getAttribute('m') || '{}');
+          const m = res.getAttribute('m');
+          if(!m) return { url: "", width:0, height: 0 };
+          const metadata = JSON.parse(m);
           return {
             url: metadata.murl || "",
             width: metadata.w || 0,
@@ -64,7 +70,7 @@ export async function scrapeFoodImages(foodName: string): Promise<ScrapeResult> 
       });
       
       await browser.close();
-      return { success: bingCandidates.length > 0, candidates: bingCandidates };
+      return { success: bingCandidates.length > 0, candidates: bingCandidates.filter((c: any) => c.url) };
     }
 
     await browser.close();

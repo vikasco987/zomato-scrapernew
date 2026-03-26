@@ -10,7 +10,7 @@ const MAX_RETRIES = 2;
  * 🎯 THE ULTIMATE AI PRODUCTION ORCHESTRATOR
  * MULTI-CANDIDATE -> SCORING -> BEST PICK -> DIRECT CLOUD
  */
-async function processFoodItem(foodName: string) {
+export async function scrapeAndSaveFood(foodName: string) {
   console.log(`\n🚀 AI PIPELINE: [${foodName}]`);
 
   // 1. Pro Duplicate Check
@@ -91,7 +91,7 @@ async function main() {
   console.log("⚡ INITIATING ULTIMATE AI PRODUCTION LOOP...");
   
   for (const dish of dishes) {
-    await processFoodItem(dish);
+    await scrapeAndSaveFood(dish);
   }
 
   const stats = await prisma.foodImage.findMany();
