@@ -131,6 +131,36 @@ app.post("/api/cancel-job/:jobId", async (req, res) => {
   }
 });
 
+/**
+ * 🧪 AI ENGINE HEALTH CHECK (DIAGNOSTICS)
+ */
+app.get("/api/test-scraper", async (req, res) => {
+  try {
+    console.log("🧪 DIAGNOSTICS: Starting AI Engine test...");
+    const { scrapeFoodImages } = await import("./scraper/index.js");
+    const testResult = await scrapeFoodImages("Cold Coffee");
+    
+    if (testResult.success) {
+      return res.json({
+        status: "HEALTHY 🟢",
+        engine: "Puppeteer Stealth",
+        discovery: "Success",
+        sampleItems: testResult.candidates.length,
+        environment: process.env.NODE_ENV || "production"
+      });
+    } else {
+      throw new Error(testResult.error || "Scraper returned 0 candidates.");
+    }
+  } catch (error: any) {
+    console.error("❌ DIAGNOSTICS FAILED:", error.message);
+    res.status(500).json({ 
+      status: "UNHEALTHY 🔴", 
+      error: error.message,
+      tip: "Ensure 'Puppeteer Buildpack' or Chrome is available on Render." 
+    });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`\n🔱 KRAVY DASHBOARD: Running on http://localhost:${PORT}`);
