@@ -55,8 +55,13 @@
                         <h3 class="text-4xl font-black" id="selectedRestoName">Restaurant Menu</h3>
                         <p class="text-orange-500 uppercase text-[10px] font-black tracking-widest mt-2" id="selectedRestoId"></p>
                     </div>
-                    <!-- BULK SYNC BUTTON RESTORED -->
-                    <button onclick="triggerAllScrape()" id="scrapeAllBtn" class="bg-orange-500 hover:bg-orange-600 px-10 py-5 rounded-2xl font-bold transition-all shadow-2xl shadow-orange-500/20"> 🚀 SYNC ENTIRE MENU </button>
+                    <div class="flex items-center gap-4">
+                        <div class="flex items-center gap-2 bg-white/5 border border-white/10 px-4 py-3 rounded-2xl">
+                           <input type="checkbox" id="missingOnly" onchange="renderMenuList(currentMenuCache)" class="w-4 h-4 accent-orange-500">
+                           <label for="missingOnly" class="text-xs font-bold opacity-60">Missing Images Only</label>
+                        </div>
+                        <button onclick="triggerAllScrape()" id="scrapeAllBtn" class="bg-orange-500 hover:bg-orange-600 px-10 py-5 rounded-2xl font-bold transition-all shadow-2xl shadow-orange-500/20"> 🚀 SYNC ENTIRE MENU </button>
+                    </div>
                 </div>
                 <div id="externalMenuList" class="grid grid-cols-1 gap-4"></div>
             </div>
@@ -100,6 +105,13 @@
                 await fetch('/api/jobs/clear-all', { method: 'DELETE' });
                 pollJobs();
             } catch (e) { alert('Purge failed'); }
+        }
+
+        async function retryJob(id) {
+            try {
+                await fetch(`/api/jobs/retry/${id}`, { method: 'POST' });
+                pollJobs();
+            } catch (e) { alert('Retry failed'); }
         }
     </script>
 
@@ -198,6 +210,8 @@
             `).join('');
         }
 
+        let currentMenuCache = [];
+
         async function selectRestaurant(id, name) {
             currentUserId = id;
             document.getElementById('restaurantView').classList.add('hidden');
@@ -209,13 +223,16 @@
             list.innerHTML = '<p class="p-20 opacity-50 text-center">Linking Live Assets...</p>';
             try {
                 const res = await fetch(`/api/external-menu/${id}`);
-                const items = await res.json();
-                renderMenuList(items);
+                currentMenuCache = await res.json();
+                renderMenuList(currentMenuCache);
             } catch (e) { list.innerHTML = '<p class="text-red-500 p-20">Link Expired.</p>'; }
         }
 
         function renderMenuList(items) {
-            document.getElementById('externalMenuList').innerHTML = items.map(i => `
+            const missingOnly = document.getElementById('missingOnly').checked;
+            const filtered = missingOnly ? items.filter(i => !i.image) : items;
+            
+            document.getElementById('externalMenuList').innerHTML = filtered.map(i => `
                 <div class="glass-card p-6 flex items-center justify-between group" id="item-card-${i.id}">
                     <div class="flex items-center gap-6">
                         <div class="w-20 h-20 bg-white/5 rounded-2xl overflow-hidden flex items-center justify-center border border-white/5" id="item-img-${i.id}">
@@ -292,21 +309,33 @@
             try {
                 const res = await fetch('/api/jobs');
                 const jobs = await res.json();
-                container.innerHTML = jobs.map(j => `
+                container.innerHTML = jobs.map(j => {
+                   const remaining = j.totalItems - j.processedCount;
+                   const estSeconds = remaining * 2.5; // Average 2.5s per item in Turbo Local
+                   const etaStr = remaining > 0 ? `ETA: ${Math.ceil(estSeconds/60)}m ${Math.ceil(estSeconds%60)}s` : 'DONE';
+                   
+                   return `
                     <div class="glass-card p-8 flex items-center justify-between group">
                         <div class="flex-1">
                             <h4 class="text-xl font-bold">${j.userId}</h4>
-                            <p class="text-[10px] opacity-50 mt-1 uppercase tracking-tighter">${j.status} • ${j.processedCount}/${j.totalItems} Items</p>
+                            <div class="flex items-center gap-4">
+                               <p class="text-[10px] opacity-50 mt-1 uppercase tracking-tighter">${j.status} • ${j.processedCount}/${j.totalItems} Items</p>
+                               ${j.status === 'processing' ? `<span class="text-[10px] text-orange-400 font-bold ml-2">${etaStr}</span>` : ''}
+                            </div>
                             ${j.error ? `<p class="text-[10px] text-red-500 mt-2">${j.error}</p>` : ''}
                         </div>
                         <div class="flex items-center gap-6">
                             <div class="w-32 bg-white/5 h-2 rounded-full overflow-hidden">
                                 <div class="bg-orange-500 h-full transition-all duration-500" style="width: ${j.totalItems > 0 ? (j.processedCount/j.totalItems)*100 : 0}%"></div>
                             </div>
-                            <button onclick="deleteJob('${j.id}')" class="p-3 bg-red-500/10 text-red-400 hover:bg-red-500 rounded-xl opacity-0 group-hover:opacity-100 transition-all">🗑️</button>
+                            <div class="flex gap-2">
+                                ${j.status === 'failed' ? `<button onclick="retryJob('${j.id}')" class="px-4 py-2 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white rounded-xl text-[10px] font-bold transition-all">🔄 RETRY</button>` : ''}
+                                <button onclick="deleteJob('${j.id}')" class="p-3 bg-red-500/10 text-red-400 hover:bg-red-500 rounded-xl opacity-0 group-hover:opacity-100 transition-all">🗑️</button>
+                            </div>
                         </div>
                     </div>
-                `).join('');
+                   `;
+                }).join('');
                 if (jobs.some(j => j.status === 'processing' || j.status === 'queued')) setTimeout(pollJobs, 4000);
             } catch (e) { }
         }

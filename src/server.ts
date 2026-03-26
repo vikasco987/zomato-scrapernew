@@ -160,6 +160,23 @@ app.delete("/api/jobs/clear-all", async (req, res) => {
   }
 });
 
+/**
+ * 🔄 JOB MANAGEMENT: Retry a failed/stuck job
+ */
+app.post("/api/jobs/retry/:id", async (req, res) => {
+  try {
+    const job = await prisma.scraperJob.update({
+      where: { id: req.params.id },
+      data: { status: "queued", error: null }
+    });
+    // Trigger worker
+    queueManager.processQueue();
+    res.json({ success: true, message: "Job re-queued! 🚀" });
+  } catch (e) {
+    res.status(500).json({ error: "Retry failed." });
+  }
+});
+
 app.get("/api/test-scraper", async (req, res) => {
   try {
     console.log("🧪 DIAGNOSTICS: Starting AI Engine test...");
