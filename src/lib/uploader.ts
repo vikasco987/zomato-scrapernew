@@ -7,7 +7,13 @@ import cloudinary from "./cloudinary.js";
  */
 export async function uploadImageFromUrl(imageUrl: string, dishName: string) {
   try {
-    const publicId = `${dishName.replace(/\s+/g, "-").toLowerCase()}-${Date.now()}`;
+    // 🔥 CRITICAL FIX: Strip invalid characters (&, (, ), etc.) for Cloudinary public_id
+    const sanitizedDish = dishName
+      .replace(/\s+/g, "-")
+      .replace(/[^a-zA-Z0-9-]/g, "") // Allow alphanumeric and dashes
+      .toLowerCase();
+      
+    const publicId = `${sanitizedDish}-${Date.now()}`;
 
     console.log(`☁️ Cloudinary: Direct Fetching ${dishName}...`);
     

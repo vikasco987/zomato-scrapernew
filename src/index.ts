@@ -30,56 +30,56 @@ export async function scrapeAndSaveFood(foodName: string, userId: string | null 
     });
   }
 
-  // 3. Multi-Candidate Search (Up to 5 images)
+  // 3. Multi-Candidate Search + Multi-Candidate Try
   let attempts = record.retryCount;
-  let winner: { url: string; width?: number; height?: number } | null = null;
-
+  
   while (attempts < MAX_RETRIES) {
     record = await prisma.foodImage.update({ where: { id: record.id }, data: { retryCount: attempts + 1 } });
     
     const result = await scrapeFoodImages(foodName);
     
     if (result.success && result.candidates.length > 0) {
-      // 🧠 AI SCORING + SELECTION (THE CROWN JEWEL)
-      winner = pickBestImage(result.candidates, foodName);
-      if (winner) break;
+      // 🧠 AI SCORING (Sort by confidence)
+      const rankedItems = result.candidates
+        .map(c => ({ ...c, score: pickBestImage([c], foodName) ? 100 : 0 })) // Basic filter, we could refine this
+        .sort((a, b) => b.score - a.score);
+
+      for (const item of result.candidates) {
+        try {
+          const cdnUrl = await uploadImageFromUrl(item.url, foodName);
+          if (cdnUrl) {
+             // ✅ SUCCESS! Permanent Asset Deployed.
+             const finalRecord = await prisma.foodImage.update({
+               where: { id: record.id },
+               data: {
+                 originalUrl: item.url,
+                 cloudinaryUrl: cdnUrl,
+                 status: "completed",
+                 localPath: null,
+                 errorMessage: null
+               }
+             });
+             console.log(`✅ [${foodName}] SYNC COMPLETED (${attempts + 1} attempts)`);
+             return finalRecord;
+          }
+        } catch (uploadErr: any) {
+          console.warn(`⚠️ [${foodName}] Candidate failed: ${uploadErr.message}. Trying next...`);
+        }
+      }
     }
     
     attempts++;
+    console.log(`🔄 [${foodName}] All candidates failed in attempt ${attempts}. Retrying search...`);
     await delay(3000);
   }
 
-  if (!winner) {
-    console.warn(`❌ No quality image found for ${foodName} after ${attempts} attempts.`);
-    await prisma.foodImage.update({ where: { id: record.id }, data: { status: "failed", errorMessage: "No good candidates found." } });
-    return null;
-  }
-
-  // 4. 🔥 DIRECT CLOUD PUSH (Zero local latency)
-  try {
-     const cdnUrl = await uploadImageFromUrl(winner.url, foodName);
-     if (!cdnUrl) throw new Error("CloudLink Handshake failed.");
-
-     // 5. Update Database with Permanent Asset
-     const finalRecord = await prisma.foodImage.update({
-       where: { id: record.id },
-       data: {
-         originalUrl: winner.url,
-         cloudinaryUrl: cdnUrl,
-         status: "completed",
-         localPath: null, // Zero local storage logic!
-         errorMessage: null
-       }
-     });
-
-     console.log(`✅ DISH DEPLOYED: ${foodName} (Scored & Optimized 🏅)`);
-     return finalRecord;
-
-  } catch (err: any) {
-     console.error(`❌ [${foodName}] Pipeline Exception: ${err.message}`);
-     await prisma.foodImage.update({ where: { id: record.id }, data: { status: "failed", errorMessage: err.message } });
-     return null;
-  }
+  // ❌ TOTAL FAILURE
+  console.warn(`❌ No quality image found for ${foodName} after ${attempts} attempts.`);
+  await prisma.foodImage.update({ 
+    where: { id: record.id }, 
+    data: { status: "failed", errorMessage: "Exhausted all search candidates." } 
+  });
+  return null;
 }
 
 /**
