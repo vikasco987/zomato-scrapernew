@@ -22,12 +22,23 @@ export async function scrapeAndUpdateExternalMenu(userId: string, jobId?: string
   const limit = pLimit(12); // 👈 12 Items in Parallel (Turbo Local Mode)
 
   try {
-    // 1. Fetch Menu Items (External Project)
-    const res = await axios.get(`${EXTERNAL_BASE}/menu/${userId}`, { headers, timeout: 5000 });
-    const items = res.data;
+    // 1. Fetch Menu Items (Check if Local Restaurant or External User)
+    let items: any[] = [];
+    const localResto = await prisma.restaurant.findUnique({ where: { id: userId } });
 
-    if (!items || items.length === 0) {
-        console.warn("⚠️ No items without images found.");
+    if (localResto) {
+        console.log(`🏠 LOCAL SYSTEM: Processing assets for restaurant ${localResto.name}`);
+        items = await prisma.menuItem.findMany({ 
+            where: { restaurantId: userId, OR: [{ image: "" }, { image: null }] } 
+        });
+    } else {
+        console.log(`🌍 BRIDGE SYSTEM: Fetching missing assets from Billing...`);
+        const res = await axios.get(`${EXTERNAL_BASE}/menu/${userId}`, { headers, timeout: 5000 });
+        items = (res.data || []).filter((i: any) => !(i.imageUrl || i.image || i.cloudinaryUrl));
+    }
+
+    if (items.length === 0) {
+        console.warn("⚠️ No missing items found for this target.");
         return { success: true, processed: 0 };
     }
 

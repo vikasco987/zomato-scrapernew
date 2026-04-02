@@ -1,0 +1,17 @@
+version: "3.8"
+
+services:
+  kravy-scraper:
+    build: .
+    container_name: kravy-sync-engine
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    restart: always # Auto-restart if server crashes
+    shm_size: '2gb' # Extra shared memory for Chromium stability
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

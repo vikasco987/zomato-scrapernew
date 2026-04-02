@@ -10,9 +10,9 @@ import { emitUpdate } from "./socket.js";
 class QueueManager {
   private isProcessing = false;
 
-  async addJob(userId: string) {
+  async addJob(userId: string, totalItems?: number) {
     const job = await prisma.scraperJob.create({
-      data: { userId, status: "queued" }
+      data: { userId, status: "queued", totalItems: totalItems || 0 }
     });
     
     emitUpdate("job_update", job);

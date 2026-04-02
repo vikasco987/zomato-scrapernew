@@ -26,11 +26,22 @@ export async function scrapeFoodImages(foodName: string): Promise<ScrapeResult> 
       finalProxy = await anonymizeProxy(rawProxy);
     }
 
-    const launchArgs = ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'];
+    const launchArgs = [
+      '--no-sandbox', 
+      '--disable-setuid-sandbox', 
+      '--disable-dev-shm-usage', 
+      '--disable-gpu',
+      '--disable-software-rasterizer',
+      '--hide-scrollbars'
+    ];
     if (finalProxy) launchArgs.push(`--proxy-server=${finalProxy}`);
 
     // @ts-ignore
-    browser = await (puppeteer as any).launch({ headless: "new", args: launchArgs });
+    browser = await (puppeteer as any).launch({ 
+      headless: "new", 
+      args: launchArgs,
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined // Essential for Docker
+    });
     const page = await browser.newPage();
     await page.setUserAgent(getRandomUserAgent());
     await page.setDefaultNavigationTimeout(45000);

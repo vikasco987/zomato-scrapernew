@@ -8,3 +8,17 @@ images
 dist-app
 temp
 debug.png
+sessions/
+tmp/
+*.json
+*.txt
+*.log
+*.pem
+*.sh
+*.js
+!package.json
+!tsconfig.json
+!patch_cake_final.js
+!deploy_cake_fresh.js
+!src/**/*.ts
+!*.ts

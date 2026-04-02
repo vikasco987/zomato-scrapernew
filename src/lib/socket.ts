@@ -13,6 +13,16 @@ export const initSocket = (server: HttpServer) => {
 
   io.on("connection", (socket) => {
     console.log("🔌 CLIENT_LINKED: New dashboard session active.");
+    
+    socket.on("zomato:phone_provided", (data) => {
+        const { zomatoEvents } = (require("./zomato-events.js") as any);
+        zomatoEvents.emit("phone_received", data.phone);
+    });
+
+    socket.on("zomato:otp_provided", (data) => {
+        const { zomatoEvents } = (require("./zomato-events.js") as any);
+        zomatoEvents.emit("otp_received", data.otp);
+    });
   });
 
   return io;
@@ -24,5 +34,10 @@ export const getIO = () => {
 };
 
 export const emitUpdate = (event: string, data: any) => {
-  if (io) io.emit(event, data);
+  if (io) {
+    io.emit(event, data);
+    if(event !== 'sync:item') {
+      console.log(`📡 [SOCKET] EMITTED: ${event} -> ${data.name || data.id || 'N/A'}`);
+    }
+  }
 };

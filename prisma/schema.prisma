@@ -39,3 +39,37 @@ model ScraperJob {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 }
+model MenuItem {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  name         String
+  price        Float
+  description  String?
+  category     String
+  image        String?
+  source       String   // zomato / swiggy
+  restaurantId String   @db.ObjectId
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  status               String     @default("pending") // 'pending', 'completed', 'failed'
+  stabilityStatus      String     @default("PENDING") // 'PENDING', 'LIVE', 'REMOVED', 'STABLE'
+  history              Json?      // Lifecycle log: [{status: 'LIVE', time: '...'}, ...]
+  retries              Int        @default(0)
+  lastStabilityCheck   DateTime?
+  uploadedAt           DateTime?
+  retryCount           Int        @default(0)
+  errorMessage String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([name, restaurantId])
+}
+
+model Restaurant {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  name         String
+  slug         String   @unique
+  url          String?
+  source       String   // zomato / swiggy
+  menuItems    MenuItem[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}

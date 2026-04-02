@@ -7,111 +7,538 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        :root { --brand-primary: #f97316; --bg-deep: #0a0b10; --card-glass: rgba(255, 255, 255, 0.03); --card-border: rgba(255, 255, 255, 0.08); }
-        body { font-family: 'Outfit', sans-serif; background-color: var(--bg-deep); background-image: radial-gradient(at 0% 0%, rgba(249, 115, 22, 0.1) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(139, 92, 246, 0.1) 0px, transparent 50%); min-height: 100vh; color: #f8fafc; }
-        .glass-card { background: var(--card-glass); backdrop-filter: blur(16px); border: 1px solid var(--card-border); border-radius: 24px; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
-        .nav-tab { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.5rem; border-radius: 1rem; transition: all 0.3s; font-weight: 500; white-space: nowrap; border: 1px solid transparent; background: transparent; color: inherit; cursor: pointer; }
-        .nav-tab.active { background: linear-gradient(135deg, rgba(249, 115, 22, 0.1), rgba(251, 146, 60, 0.05)); border-color: rgba(249, 115, 22, 0.2); color: var(--brand-primary); }
-        .spinner { border: 3px solid rgba(255, 255, 255, 0.1); border-top: 3px solid #f97316; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .shimmer-text { background: linear-gradient(90deg, #fff, #f97316, #fff); background-size: 200% auto; -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: shimmer 3s linear infinite; }
+        :root { 
+            --brand-primary: #f97316; 
+            --brand-secondary: #8b5cf6;
+            --bg-deep: #05060a; 
+            --card-glass: rgba(255, 255, 255, 0.02); 
+            --card-border: rgba(255, 255, 255, 0.06); 
+            --text-main: #f8fafc;
+            --text-dim: rgba(248, 250, 252, 0.5);
+            --accent-glow: rgba(249, 115, 22, 0.15);
+        }
+
+        body { 
+            font-family: 'Outfit', sans-serif; 
+            background-color: var(--bg-deep); 
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(249, 115, 22, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(139, 92, 246, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 50% 50%, rgba(10, 11, 16, 1) 0%, rgba(5, 6, 10, 1) 100%);
+            background-attachment: fixed;
+            min-height: 100vh; 
+            color: var(--text-main); 
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+        }
+
+        /* --- UI Components --- */
+        .glass-card { 
+            background: var(--card-glass); 
+            backdrop-filter: blur(24px); 
+            border: 1px solid var(--card-border); 
+            border-radius: 28px; 
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1); 
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+        .glass-card:hover {
+            border-color: rgba(249, 115, 22, 0.2);
+            transform: translateY(-4px);
+            box-shadow: 0 12px 48px 0 rgba(249, 115, 22, 0.1);
+        }
+
+        .nav-tab { 
+            display: flex; 
+            align-items: center; 
+            gap: 0.6rem; 
+            padding: 0.8rem 1.8rem; 
+            border-radius: 99px; 
+            transition: all 0.4s; 
+            font-weight: 600; 
+            font-size: 0.85rem;
+            white-space: nowrap; 
+            border: 1px solid transparent; 
+            background: transparent; 
+            color: var(--text-dim); 
+            cursor: pointer;
+            letter-spacing: 0.02em;
+        }
+        .nav-tab:hover {
+            color: var(--text-main);
+            background: rgba(255, 255, 255, 0.03);
+        }
+        .nav-tab.active { 
+            background: rgba(249, 115, 22, 0.1);
+            border-color: rgba(249, 115, 22, 0.3); 
+            color: var(--brand-primary); 
+            box-shadow: 0 0 20px rgba(249, 115, 22, 0.1);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #f97316, #ea580c);
+            color: black;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            transition: all 0.4s;
+            box-shadow: 0 8px 24px rgba(249, 115, 22, 0.2);
+        }
+        .btn-primary:hover {
+            transform: scale(1.02) translateY(-2px);
+            box-shadow: 0 12px 32px rgba(249, 115, 22, 0.4);
+        }
+        .btn-primary:active { transform: scale(0.98); }
+
+        /* --- Scraper Console HUD --- */
+        .console-hud {
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid rgba(249, 115, 22, 0.1);
+            position: relative;
+            background-image: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.15) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.03), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.03));
+            background-size: 100% 4px, 3px 100%;
+        }
+        .console-hud::after {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 0%, rgba(249, 115, 22, 0.02) 50%, rgba(18, 16, 16, 0) 100%);
+            background-size: 100% 200%;
+            animation: scanline 4s linear infinite;
+            pointer-events: none;
+        }
+        @keyframes scanline {
+            0% { background-position: 0% 0%; }
+            100% { background-position: 0% 100%; }
+        }
+
+        .shimmer-text { 
+            background: linear-gradient(90deg, #fff, #f97316, #fff); 
+            background-size: 200% auto; 
+            -webkit-background-clip: text; 
+            -webkit-text-fill-color: transparent; 
+            animation: shimmer 4s linear infinite; 
+        }
         @keyframes shimmer { to { background-position: 200% center; } }
+
+        .spinner { 
+            border: 2px solid rgba(249, 115, 22, 0.1); 
+            border-top: 2px solid #f97316; 
+            border-radius: 50%; 
+            width: 20px; 
+            height: 20px; 
+            animation: spin 0.8s cubic-bezier(0.5, 0.1, 0.5, 0.9) infinite; 
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.2); }
+
+        .animate-float { animation: float 6s ease-in-out infinite; }
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
     </style>
 </head>
-<body class="p-6 md:p-10">
-    <div class="max-w-7xl mx-auto">
-        <!-- Header -->
-        <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
-            <h1 onclick="location.reload()" class="text-4xl font-extrabold flex items-center gap-3 cursor-pointer">
-                <span class="p-2 bg-orange-500 rounded-2xl shadow-lg shadow-orange-500/20">⚡</span>
-                <span class="shimmer-text">Kravy AI</span>
-            </h1>
-            <nav class="flex p-2 bg-white/5 rounded-3xl border border-white/5 backdrop-blur-xl">
-                <button onclick="switchTab('gallery')" id="tab-gallery" class="nav-tab active">Asset Pool</button>
-                <button onclick="switchTab('sync')" id="tab-sync" class="nav-tab">Sync Bridge</button>
-                <button onclick="switchTab('history')" id="tab-history" class="nav-tab">Live Jobs</button>
+<body class="p-4 md:p-8">
+    <div class="max-w-7xl mx-auto space-y-12">
+        <!-- Header / Navigation Hub -->
+        <header class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-10">
+            <div class="flex items-center gap-5">
+                <div class="relative group">
+                    <div class="absolute -inset-1 bg-gradient-to-r from-orange-600 to-orange-400 rounded-3xl blur opacity-25 group-hover:opacity-100 transition duration-1000 group-hover:duration-200"></div>
+                    <div onclick="location.reload()" class="relative p-5 bg-black rounded-3xl border border-white/10 cursor-pointer transition-all hover:scale-110 active:scale-95">
+                        <span class="text-3xl">⚡</span>
+                    </div>
+                </div>
+                <div>
+                    <h1 class="text-5xl font-black tracking-tight shimmer-text">Kravy AI Hub</h1>
+                    <p class="text-[10px] font-black uppercase tracking-[0.6em] text-orange-500/60 mt-1">Autonomous Scraper Engine</p>
+                </div>
+            </div>
+            
+            <nav class="flex items-center p-2 bg-white/[0.03] backdrop-blur-3xl rounded-full border border-white/5 shadow-2xl overflow-x-auto no-scrollbar max-w-full">
+                <button onclick="switchTab('gallery')" id="tab-gallery" class="nav-tab active">📦 POOL</button>
+                <button onclick="switchTab('guardian')" id="tab-guardian" class="nav-tab">🛡️ GUARDIAN</button>
+                <button onclick="switchTab('sync')" id="tab-sync" class="nav-tab">🌉 BRIDGE</button>
+                <button onclick="switchTab('library')" id="tab-library" class="nav-tab">🏛️ LIBRARY</button>
+                <button onclick="switchTab('verified')" id="tab-verified" class="nav-tab">🚀 VERIFIED</button>
+                <button onclick="switchTab('zomato-feed')" id="tab-zomato-feed" class="nav-tab text-emerald-400 font-black">🌟 ZOMATO FEED</button>
+                <button onclick="switchTab('auto-upload')" id="tab-auto-upload" class="nav-tab text-orange-500 font-black">🔥 AUTO-UPLOAD</button>
+                <div class="w-px h-6 bg-white/10 mx-2"></div>
+                <button onclick="switchTab('import')" id="tab-import" class="nav-tab">🚜 IMPORT</button>
+                <button onclick="switchTab('shadow')" id="tab-shadow" class="nav-tab">🕵️ SHADOW</button>
+                <button onclick="switchTab('history')" id="tab-history" class="nav-tab">🌊 JOBS</button>
             </nav>
         </header>
 
         <!-- PAGE: Gallery -->
-        <main id="page-gallery" class="tab-content">
-            <div id="stats-grid" class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-12"></div>
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-bold">Processed Assets</h2>
-                <button onclick="fetchData()" class="bg-white/5 hover:bg-white/10 px-4 py-2 rounded-xl text-xs font-bold border border-white/5">🔄 Refresh Gallery</button>
+        <main id="page-gallery" class="tab-content space-y-12">
+            <div id="stats-grid" class="grid grid-cols-2 lg:grid-cols-4 gap-6"></div>
+            
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="text-3xl font-black tracking-tight">Processed Assets</h2>
+                    <p class="text-xs text-dim mt-1">High-fidelity training data ready for deployment.</p>
+                </div>
+                <button onclick="fetchData()" class="px-6 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all">
+                    🔄 REFRESH POOL
+                </button>
             </div>
+            
             <div id="gallery-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8"></div>
         </main>
 
-        <!-- PAGE: Sync Bridge -->
-        <main id="page-sync" class="tab-content hidden">
-            <div id="restaurantView">
-                <div id="restaurantGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16"></div>
-            </div>
-
-            <div id="selectedUserView" class="hidden space-y-8 animate-in fade-in transition-all">
-                <button onclick="backToRestaurants()" class="text-slate-500 hover:text-white flex items-center gap-2 mb-4"> ← Back to List </button>
-                <div class="flex flex-col md:flex-row justify-between items-end gap-6 bg-white/5 p-8 rounded-[32px] border border-white/5 relative overflow-hidden">
-                    <div class="relative z-10">
-                        <h3 class="text-4xl font-black" id="selectedRestoName">Restaurant Menu</h3>
-                        <p class="text-orange-500 uppercase text-[10px] font-black tracking-widest mt-2" id="selectedRestoId"></p>
-                    </div>
-                    <div class="flex items-center gap-4 relative z-10">
-                        <button onclick="openPreview()" class="bg-blue-600 hover:bg-blue-700 px-6 py-5 rounded-2xl font-bold transition-all shadow-xl shadow-blue-500/20"> 👁️ LIVE PREVIEW </button>
-                        <button onclick="triggerAllScrape()" id="scrapeAllBtn" class="bg-orange-500 hover:bg-orange-600 px-10 py-5 rounded-2xl font-bold transition-all shadow-2xl shadow-orange-500/20"> 🚀 SYNC ENTIRE MENU </button>
+        <!-- PAGE: Guardian -->
+        <main id="page-guardian" class="tab-content hidden space-y-12">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div class="glass-card p-10 bg-emerald-500/[0.02] overflow-hidden relative group">
+                    <div class="absolute -right-10 -bottom-10 text-emerald-500/5 text-9xl font-black group-hover:scale-110 transition-all">HEAL</div>
+                    <p class="text-[10px] font-black uppercase tracking-[0.4em] text-emerald-500 mb-2">Stable Assets</p>
+                    <p class="text-6xl font-black" id="stableCount">0</p>
+                    <div class="mt-6 flex items-center gap-2">
+                        <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 pulse"></div>
+                        <span class="text-[10px] font-bold opacity-40">AUTO-MONITORING ACTIVE</span>
                     </div>
                 </div>
-                <div id="externalMenuList" class="space-y-12"></div>
+                <div class="glass-card p-10 bg-orange-500/[0.02] overflow-hidden relative group">
+                    <div class="absolute -right-10 -bottom-10 text-orange-500/5 text-9xl font-black group-hover:scale-110 transition-all">WARN</div>
+                    <p class="text-[10px] font-black uppercase tracking-[0.4em] text-orange-500 mb-2">Pending Verify</p>
+                    <p class="text-6xl font-black" id="pendingVerifyCount">0</p>
+                    <div class="mt-6 flex items-center gap-2">
+                        <div class="w-1.5 h-1.5 rounded-full bg-orange-500"></div>
+                        <span class="text-[10px] font-bold opacity-40">AI QUEUED FOR CHECK</span>
+                    </div>
+                </div>
+                <div class="glass-card p-10 bg-red-500/[0.02] overflow-hidden relative group">
+                    <div class="absolute -right-10 -bottom-10 text-red-500/5 text-9xl font-black group-hover:scale-110 transition-all">FAIL</div>
+                    <p class="text-[10px] font-black uppercase tracking-[0.4em] text-red-500 mb-2">Dead Links</p>
+                    <p class="text-6xl font-black" id="removedCount">0</p>
+                    <div class="mt-6 flex items-center gap-2">
+                        <div class="w-1.5 h-1.5 rounded-full bg-red-500"></div>
+                        <span class="text-[10px] font-bold opacity-40">ACTION REQUIRED</span>
+                    </div>
+                </div>
+            </div>
+            <div id="guardian-list" class="space-y-6"></div>
+        </main>
+
+        <!-- PAGE: Library (Restaurant Repository) -->
+        <main id="page-library" class="tab-content hidden space-y-12">
+            <div id="library-restaurant-view">
+                <div class="mb-12">
+                    <h2 class="text-4xl font-black tracking-tight text-white">🏛️ Restaurant Repository</h2>
+                    <p class="text-xs text-dim mt-2 tracking-widest uppercase">Browse all scraped restaurant identities and their deep-extracted menus.</p>
+                </div>
+                <div id="library-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8"></div>
+            </div>
+
+            <div id="library-menu-view" class="hidden space-y-12 animate-in slide-in-from-bottom-10 transition-all duration-700">
+                <div class="flex items-center justify-between">
+                    <button onclick="backToLibrary()" class="px-8 py-4 bg-white/5 border border-white/5 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all"> 
+                        ← BACK TO REPOSITORY 
+                    </button>
+                    <div class="flex gap-4">
+                         <button onclick="forceShadowScan()" id="btn-force-scan" class="px-8 py-4 bg-orange-500 text-black text-[10px] font-black rounded-2xl tracking-widest uppercase hover:scale-x-105 transition-all"> ⚡ FORCE SHADOW SCAN </button>
+                         <span class="px-5 py-3 bg-orange-500/10 border border-orange-500/20 text-orange-500 text-[10px] font-black rounded-2xl tracking-widest uppercase" id="lib-item-count">0 ITEMS</span>
+                    </div>
+                </div>
+                
+                <div class="glass-card p-12 bg-gradient-to-br from-orange-500/[0.05] to-transparent">
+                    <h3 class="text-6xl font-black tracking-tighter" id="lib-resto-name">Restaurant Menu</h3>
+                    <p class="text-[10px] text-orange-500 uppercase font-black tracking-[0.6em] mt-6" id="lib-resto-id">DATABASE IDENTIFIER: ---</p>
+                </div>
+                
+                <div id="library-menu-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-10"></div>
+            </div>
+        </main>
+
+        <!-- PAGE: Verified (Approved Assets) -->
+        <main id="page-verified" class="tab-content hidden space-y-12">
+            <div class="mb-12">
+                <h2 class="text-4xl font-black tracking-tight text-white mb-2">🚀 Verified Hub</h2>
+                <div class="flex items-center gap-2">
+                    <div class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></div>
+                    <p class="text-[10px] text-dim tracking-[0.4em] uppercase">Displaying only high-confidence assets [STABLE STATUS].</p>
+                </div>
+            </div>
+
+            <div id="verified-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-10"></div>
+        </main>
+
+        <!-- PAGE: Zomato Feed (Live Feed of Uploaded Items) -->
+        <main id="page-zomato-feed" class="tab-content hidden space-y-12">
+            <div class="flex justify-between items-center mb-12">
+                <div>
+                    <h2 class="text-6xl font-black tracking-tighter text-white uppercase italic">Zomato Production Feed</h2>
+                    <p class="text-xs text-emerald-400 font-bold tracking-[0.4em] uppercase mt-2">Real-time monitor of auto-uploaded menu items.</p>
+                </div>
+                <button onclick="loadZomatoFeed()" class="px-8 py-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-emerald-500 hover:text-black transition-all"> 🔄 REFRESH FEED </button>
+            </div>
+
+            <div id="zomato-feed-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-10"></div>
+        </main>
+
+        <!-- PAGE: Auto-Upload (Automation Hub) -->
+        <main id="page-auto-upload" class="tab-content hidden space-y-12">
+            <div class="mb-12">
+                <h2 class="text-6xl font-black tracking-tighter text-white uppercase italic">Zomato Auto-Upload Bot V1.0</h2>
+                <p class="text-xs text-orange-500 font-bold tracking-[0.4em] uppercase mt-2">Experimental Production Automation Engine.</p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-12">
+                <div class="glass-card p-12 col-span-1 space-y-8">
+                    <div class="space-y-6">
+                        <div>
+                            <label class="text-[10px] font-black uppercase tracking-widest text-orange-500 block mb-4">📍 SOURCE (SCRAPED DATA)</label>
+                            <select id="auto-upload-source" class="w-full bg-white/5 border border-white/5 rounded-2xl px-6 py-5 text-sm appearance-none focus:border-orange-500 transition-all"></select>
+                        </div>
+                        
+                        <div>
+                            <label class="text-[10px] font-black uppercase tracking-widest text-emerald-400 block mb-4">🎯 TARGET (ZOMATO ACCOUNT)</label>
+                            <div class="space-y-4">
+                                <select id="auto-upload-target" class="w-full bg-white/5 border border-white/5 rounded-2xl px-6 py-5 text-sm appearance-none focus:border-emerald-500 transition-all">
+                                     <option value="DETECT">🔍 AUTO-DETECT FROM DASHBOARD</option>
+                                </select>
+                                <div class="relative">
+                                    <input type="text" id="manual-target-id" placeholder="OR ENTER MANUAL ZOMATO ID" class="w-full bg-black/40 border border-white/5 rounded-2xl px-6 py-4 text-[10px] uppercase font-black tracking-widest focus:border-orange-500 transition-all">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="pt-6 border-t border-white/5 space-y-4">
+                        <button onclick="startZomatoBot()" id="btn-bot-start" class="w-full py-6 bg-orange-500 text-black font-black text-xs rounded-2xl shadow-[0_0_50px_rgba(249,115,22,0.3)] hover:scale-[1.02] transform transition-all uppercase tracking-widest">
+                           🚀 START MAPPED DEPLOYMENT
+                        </button>
+                        <p class="text-[8px] text-dim mt-6 text-center italic">Maps local source assets to a target Zomato identifier.</p>
+                    </div>
+
+                    <div class="pt-10 border-t border-white/10 space-y-8 mt-10">
+                        <h4 class="text-xs font-black uppercase tracking-widest text-emerald-400">⚡ SINGLE ITEM MANUAL PUSH</h4>
+                        <div class="space-y-4">
+                            <input type="text" id="manual-item-name" placeholder="ITEM NAME (E.G. CAKE)" class="w-full bg-black/40 border border-white/5 rounded-xl px-6 py-4 text-[10px] font-black tracking-widest focus:border-emerald-500 transition-all">
+                            <input type="number" id="manual-item-price" placeholder="PRICE (₹)" class="w-full bg-black/40 border border-white/5 rounded-xl px-6 py-4 text-[10px] font-black tracking-widest focus:border-emerald-500 transition-all">
+                            <textarea id="manual-item-desc" placeholder="DESCRIPTION (OPTIONAL)" class="w-full bg-black/40 border border-white/5 rounded-xl px-6 py-4 text-[10px] font-black tracking-widest focus:border-emerald-500 transition-all h-20"></textarea>
+                            <button onclick="startSinglePush()" id="btn-single-push" class="w-full py-5 bg-emerald-500 text-black font-black text-[10px] rounded-xl hover:scale-[1.02] transform transition-all uppercase tracking-widest">
+                               🔥 PUSH SINGLE ASSET
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-2 glass-card p-12 bg-black/40 overflow-hidden relative">
+                    <div class="absolute inset-0 bg-gradient-to-br from-orange-500/[0.03] to-transparent pointer-events-none"></div>
+                    <div class="relative z-10 h-full flex flex-col">
+                        <div class="flex justify-between items-center mb-8">
+                            <h3 class="text-xl font-black tracking-widest uppercase">Live Automation Monitor</h3>
+                            <div class="flex gap-4" id="bot-status-pills">
+                                <span class="px-4 py-1.5 bg-emerald-500/10 text-emerald-400 text-[9px] font-black rounded-full border border-emerald-500/20 uppercase" id="bot-success-count">⚡ SUCCESS: 0</span>
+                                <span class="px-4 py-1.5 bg-red-500/10 text-red-400 text-[9px] font-black rounded-full border border-red-500/20 uppercase" id="bot-failed-count">🛑 FAILED: 0</span>
+                                <span class="px-4 py-1.5 bg-white/5 text-white text-[9px] font-black rounded-full border border-white/10 uppercase" id="bot-status-text">OFFLINE</span>
+                            </div>
+                        </div>
+                        
+                        <div id="bot-progress-box" class="mb-10 hidden">
+                             <div class="flex justify-between items-center mb-4 text-[10px] font-bold">
+                                 <span class="text-dim uppercase tracking-widest">Processing Assets (SaaS Mode)</span>
+                                 <span class="text-orange-500 bg-orange-500/10 px-3 py-1 rounded-lg" id="bot-progress-percent">0%</span>
+                             </div>
+                             <div class="h-3 w-full bg-white/5 rounded-full overflow-hidden border border-white/5 shadow-inner">
+                                 <div id="bot-progress-bar" class="h-full bg-gradient-to-r from-orange-400 to-orange-600 transition-all duration-1000 shadow-[0_0_20px_rgba(249,115,22,0.8)]" style="width: 0%"></div>
+                             </div>
+                        </div>
+
+                        <div id="re-login-warning" class="hidden mb-10 p-6 bg-red-500/10 border border-red-500/20 rounded-2xl animate-pulse">
+                             <p class="text-xs text-red-400 font-bold uppercase tracking-widest text-center">🔐 Re-authentication Required: Cookies missing or expired!</p>
+                        </div>
+
+                        <div id="bot-logs" class="flex-grow bg-black/20 rounded-2xl p-8 font-mono text-[11px] overflow-y-auto space-y-3 dashboard-console">
+                            <div class="opacity-30 italic">--- ENGINE IDLE: STANDING BY FOR COMMAND ---</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+        <main id="page-sync" class="tab-content hidden space-y-12">
+            <div id="restaurantView">
+                <div class="mb-12">
+                    <h2 class="text-4xl font-black tracking-tight">Bridge Gateway</h2>
+                    <p class="text-xs text-dim mt-2">Connect Kravy AI assets to live external billing points.</p>
+                </div>
+                <div id="restaurantGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"></div>
+            </div>
+
+            <div id="selectedUserView" class="hidden space-y-12">
+                <button onclick="backToRestaurants()" class="px-8 py-4 bg-white/5 border border-white/5 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-white/10 transition-all"> 
+                    ← BACK TO GATEWAY 
+                </button>
+                
+                <div class="glass-card p-12 bg-gradient-to-br from-white/[0.04] to-transparent flex flex-col lg:flex-row justify-between items-center gap-10">
+                    <div>
+                        <h3 class="text-6xl font-black tracking-tighter" id="selectedRestoName">Menu Hub</h3>
+                        <div class="flex items-center gap-3 mt-6">
+                            <span class="px-3 py-1 bg-orange-500 text-black text-[9px] font-black rounded-full uppercase tracking-widest" id="selectedRestoId">UID: ---</span>
+                            <span class="px-3 py-1 bg-white/5 border border-white/10 text-[9px] font-black rounded-full uppercase tracking-widest">LIVE SYNC READY</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-4 w-full lg:w-auto">
+                        <button onclick="openPreview()" class="flex-1 lg:flex-none px-10 py-6 bg-white border border-white rounded-3xl text-black font-black text-xs uppercase tracking-widest hover:scale-105 transition-all shadow-xl"> 👁️ VIEW PREVIEW </button>
+                        <button onclick="triggerAllScrape()" id="scrapeAllBtn" class="flex-1 lg:flex-none btn-primary px-12 py-6 rounded-3xl text-xs uppercase transition-all"> 🚀 SYNC ENTIRE MENU </button>
+                    </div>
+                </div>
+                
+                <div id="externalMenuList" class="space-y-20 mt-20"></div>
+            </div>
+        </main>
+
+        <!-- PAGE: Import Hub -->
+        <main id="page-import" class="tab-content hidden">
+            <div class="max-w-4xl mx-auto py-10 space-y-12">
+                <div class="glass-card p-16 space-y-12 bg-gradient-to-br from-white/[0.05] to-transparent relative overflow-hidden">
+                    <div class="absolute top-0 right-0 p-20 opacity-5 pointer-events-none text-9xl">🚜</div>
+                    
+                    <div class="text-center">
+                        <h2 class="text-6xl font-black tracking-tighter">Zomato Importer</h2>
+                        <p class="text-sm text-dim mt-4 max-w-md mx-auto">Input a restaurant URL and let the Kravy AI engine extract every high-fidelity asset automatically.</p>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <label class="text-[10px] font-black uppercase tracking-[0.4em] text-orange-500/60 block text-center">TARGET GATEWAY URL</label>
+                        <div class="flex flex-col gap-5">
+                            <input type="text" id="importUrlInput" placeholder="https://www.zomato.com/restaurant-slug" class="w-full bg-black/60 border border-white/10 p-8 rounded-3xl font-mono text-sm focus:border-orange-500/50 outline-none transition-all text-center placeholder:opacity-20 shadow-inner">
+                            <div class="flex gap-4">
+                                <button onclick="triggerZomatoImport()" id="importBtn" class="flex-1 btn-primary py-7 rounded-3xl text-xs transition-all"> ⚡ DEEP SCRAPE (Puppeteer) </button>
+                                <button onclick="triggerDirectImport()" id="directBtn" class="flex-1 bg-white/5 border border-white/10 hover:bg-white/10 py-7 rounded-3xl font-black text-xs uppercase tracking-widest transition-all"> 📡 DIRECT API FETCH </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CONSOLE HUD -->
+                <div id="scraperConsole" class="hidden glass-card console-hud p-12 rounded-[40px] space-y-8 animate-in slide-in-from-bottom-10 transition-all max-h-[450px] overflow-y-auto">
+                    <div class="flex justify-between items-center border-b border-white/5 pb-8">
+                        <div class="flex items-center gap-4">
+                            <div class="p-3 bg-orange-500 text-black rounded-xl font-black text-[10px]">HUD</div>
+                            <div>
+                                <h4 class="text-xs font-black uppercase tracking-[0.3em]">Scraper Core v2.2</h4>
+                                <p class="text-[10px] opacity-30 mt-1">Status: Extracting Live Buffer...</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                             <div class="w-2 h-2 rounded-full bg-orange-500 animate-pulse shadow-[0_0_12px_rgba(249,115,22,1)]"></div>
+                             <span class="text-[10px] font-black opacity-40 uppercase tracking-widest">Live Matrix</span>
+                        </div>
+                    </div>
+                    <div id="scraperLogsList" class="space-y-5 font-mono text-[11px] leading-relaxed"></div>
+                </div>
+            </div>
+        </main>
+
+        <!-- PAGE: Shadow System -->
+        <main id="page-shadow" class="tab-content hidden">
+            <div class="max-w-5xl mx-auto space-y-16 py-10">
+                <div class="glass-card p-16 bg-gradient-to-br from-indigo-600/[0.08] to-transparent border-indigo-500/20 relative overflow-hidden text-center">
+                    <div class="relative z-10 space-y-8">
+                        <div>
+                            <p class="text-indigo-400 uppercase text-[10px] font-black tracking-[0.5em] mb-4">SAMPLING & VERIFICATION</p>
+                            <h2 class="text-7xl font-black tracking-tight">Shadow Engine</h2>
+                        </div>
+                        <p class="text-dim max-w-2xl mx-auto leading-relaxed">Shadow automatically samples generated assets and scores them against original source data using AI logic to ensure production readiness without manual audit.</p>
+                        <button onclick="startShadowTest()" id="shadowStartBtn" class="bg-indigo-600 hover:bg-indigo-700 px-16 py-7 rounded-3xl font-black text-xs uppercase tracking-widest transition-all shadow-2xl shadow-indigo-500/30"> 🛸 INITIATE SHADOW SAMPLING </button>
+                    </div>
+                </div>
+
+                <div id="shadowMonitor" class="hidden space-y-12">
+                    <div class="flex justify-between items-end">
+                        <div>
+                            <h3 id="shadowRestoName" class="text-3xl font-black tracking-tighter">Analysis Buffer</h3>
+                            <p class="text-[10px] font-black opacity-30 uppercase tracking-widest mt-1">Real-time AI Verification</p>
+                        </div>
+                        <p id="shadowProgressText" class="text-xl font-mono font-black text-indigo-400">0%</p>
+                    </div>
+                    <div class="w-full bg-white/[0.02] h-4 rounded-full overflow-hidden border border-white/5 shadow-inner p-1">
+                        <div id="shadowProgressBar" class="bg-indigo-500 h-full w-[0%] transition-all duration-1000 rounded-full shadow-[0_0_20px_rgba(99,102,241,0.5)]"></div>
+                    </div>
+                    <div id="shadowResultsLog" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+                </div>
+
+                <div id="shadowVerdict" class="hidden glass-card p-20 bg-emerald-500/[0.03] border-emerald-500/20 text-center space-y-10">
+                     <span class="text-8xl">💎</span>
+                     <h4 class="text-5xl font-black text-emerald-400 tracking-tighter">VERIFICATION COMPLETE</h4>
+                     <div class="flex justify-center gap-16">
+                        <div class="text-center group"><p class="text-[10px] uppercase font-black tracking-widest opacity-30 mb-2">Approved</p><p class="text-6xl font-black group-hover:scale-110 transition-all" id="shadowApprovedCount">0</p></div>
+                        <div class="text-center group"><p class="text-[10px] uppercase font-black tracking-widest opacity-30 mb-2">Rejected</p><p class="text-6xl font-black text-red-500 group-hover:scale-110 transition-all" id="shadowRejectedCount">0</p></div>
+                     </div>
+                </div>
             </div>
         </main>
 
         <!-- PAGE: Jobs -->
-        <main id="page-history" class="tab-content hidden">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-bold">Live Jobs & Logs</h2>
-                <button onclick="clearAllJobs()" class="bg-red-500/20 text-red-500 hover:bg-red-500/30 px-4 py-2 rounded-xl text-xs font-bold border border-red-500/10">💥 Clear All History</button>
+        <main id="page-history" class="tab-content hidden space-y-12">
+             <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="text-4xl font-black tracking-tight">Active Pipelines</h2>
+                    <p class="text-xs text-dim mt-1">Real-time status of all extraction and sync jobs.</p>
+                </div>
+                <button onclick="clearAllJobs()" class="px-6 py-3 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-red-500/20 transition-all">
+                    💀 PURGE ALL HISTORY
+                </button>
             </div>
-            <div id="liveJobsList" class="grid grid-cols-1 gap-6"></div>
+            <div id="liveJobsList" class="space-y-8"></div>
         </main>
     </div>
 
     <!-- MODAL: MANUAL OVERRIDE -->
-    <div id="overrideModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-[150] hidden flex items-center justify-center p-6">
-        <div class="glass-card w-full max-w-xl p-8 shadow-2xl">
-            <div class="flex justify-between items-start mb-6">
-                <div> <h3 class="text-2xl font-bold" id="modalDishName">Override Asset</h3> <p class="text-slate-500 text-xs mt-1" id="modalDishId"></p> </div>
-                <button onclick="closeModal()" class="text-slate-500 hover:text-white">✕</button>
-            </div>
-            <div class="space-y-6">
-                <div class="p-4 bg-white/5 rounded-2xl flex items-center gap-4">
-                    <div class="flex-1"> <p class="font-bold">Option 1: Smart Re-scrape</p> <p class="text-xs text-slate-500">Forced AI extraction.</p> </div>
-                    <button onclick="handleRescrape()" id="rescrapeBtn" class="bg-blue-600 px-4 py-2 rounded-xl text-xs font-bold"> 🔄 RE-SCRAPE </button>
+    <div id="overrideModal" class="fixed inset-0 bg-black/90 backdrop-blur-xl z-[150] hidden flex items-center justify-center p-8 transition-all duration-500">
+        <div class="glass-card w-full max-w-2xl p-12 shadow-3xl border-white/10">
+            <div class="flex justify-between items-start mb-10">
+                <div> 
+                    <p class="text-orange-500 text-[10px] font-black uppercase tracking-[0.4em] mb-2">Asset Override</p>
+                    <h3 class="text-4xl font-black tracking-tight" id="modalDishName">Product Engine</h3> 
+                    <p class="text-slate-600 font-mono text-[10px] mt-4 opacity-50" id="modalDishId">UUID: ---</p> 
                 </div>
-                <div class="p-4 bg-white/5 rounded-2xl">
-                    <p class="font-bold mb-3">Option 2: Manual Upload</p>
+                <button onclick="closeModal()" class="w-12 h-12 bg-white/5 border border-white/5 rounded-full flex items-center justify-center hover:bg-red-500/20 transition-all">✕</button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div class="glass-card p-10 bg-blue-500/[0.03] border-blue-500/10 hover:bg-blue-500/[0.06] flex flex-col justify-between">
+                    <div>
+                        <p class="text-xl font-bold mb-2">Smart Re-scrape</p> 
+                        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest leading-loose">Force the AI engine to iterate one more time using advanced sampling.</p> 
+                    </div>
+                    <button onclick="handleRescrape()" id="rescrapeBtn" class="mt-8 bg-blue-600 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all"> ⚡ TRIGGER SYNC </button>
+                </div>
+                <div class="glass-card p-10 bg-orange-500/[0.03] border-orange-500/10 hover:bg-orange-500/[0.06]">
+                    <p class="text-xl font-bold mb-2">Manual Asset</p>
+                    <p class="text-[10px] text-slate-500 font-bold uppercase tracking-widest mb-6">Directly inject an image file into the Cloudinary pipeline.</p>
                     <input type="file" id="manualUploadInput" class="hidden" onchange="handleManualUpload(event)">
-                    <label for="manualUploadInput" class="w-full h-32 flex items-center justify-center border-2 border-dashed border-white/10 rounded-xl hover:border-orange-500/30 cursor-pointer transition-all"> 📁 Choose Image </label>
+                    <label for="manualUploadInput" class="w-full h-40 flex flex-col items-center justify-center border-2 border-dashed border-white/10 rounded-2xl hover:border-orange-500/40 cursor-pointer transition-all gap-4"> 
+                        <span class="text-3xl">📁</span>
+                        <span class="text-[10px] font-extrabold uppercase tracking-widest opacity-40">SELECT FILE</span>
+                    </label>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- MODAL: LIVE PREVIEW -->
-    <div id="previewModal" class="fixed inset-0 bg-black/98 backdrop-blur-3xl z-[200] hidden overflow-y-auto animate-in fade-in duration-300">
-        <div class="max-w-6xl mx-auto py-20 px-8 relative">
-            <button onclick="closePreview()" class="fixed top-8 right-8 text-white/40 hover:text-white bg-white/5 hover:bg-red-500/20 p-4 rounded-full backdrop-blur-3xl border border-white/5 transition-all z-[210]">✕ Close Preview</button>
-            <div class="text-center mb-24">
-                <span class="px-5 py-2 bg-orange-500 rounded-full text-[10px] font-black uppercase tracking-[0.3em] shadow-2xl shadow-orange-500/40 mb-8 inline-block">PRODUCTION READY VIEW</span>
-                <h2 id="previewRestoName" class="text-7xl font-black mb-4 tracking-tighter">Restaurant Menu</h2>
-                <div class="flex justify-center items-center gap-4 opacity-50">
-                    <span id="previewItemCount" class="text-[10px] font-bold uppercase tracking-widest">0 ITEMS</span>
-                    <span>•</span>
-                    <span class="text-[10px] font-bold uppercase tracking-widest text-emerald-400">Optimized by Kravy AI</span>
+    <div id="previewModal" class="fixed inset-0 bg-black/98 backdrop-blur-3xl z-[200] hidden overflow-y-auto animate-in fade-in zoom-in duration-500 p-4">
+        <div class="max-w-6xl mx-auto py-24 px-8 relative">
+            <button onclick="closePreview()" class="fixed top-10 right-10 w-16 h-16 bg-white/5 border border-white/10 rounded-full flex items-center justify-center hover:bg-red-500/20 text-xl transition-all z-[210]">✕</button>
+            <div class="text-center mb-32 space-y-8 animate-float">
+                <span class="px-6 py-2 bg-gradient-to-r from-orange-600 to-orange-400 rounded-full text-[10px] font-black uppercase tracking-[0.4em] text-black">PRODUCTION HUD VIEW</span>
+                <h2 id="previewRestoName" class="text-8xl font-black tracking-tighter">Restaurant Hub</h2>
+                <div class="flex justify-center items-center gap-6">
+                    <span id="previewItemCount" class="text-xs font-black uppercase tracking-[0.3em] opacity-40">0 ITEMS DISCOVERED</span>
+                    <div class="w-1 h-1 bg-white/20 rounded-full"></div>
+                    <span class="text-xs font-black uppercase tracking-[0.3em] text-emerald-400">AI OPTIMIZED CDN</span>
                 </div>
             </div>
-            <div id="previewGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-12"></div>
-            <footer class="mt-32 pt-12 border-t border-white/5 text-center opacity-30 italic">
-                <p class="text-sm font-bold tracking-[0.5em]">KRAVY AI ENGINE • 2026</p>
+            <div id="previewGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-16"></div>
+            <footer class="mt-40 pt-16 border-t border-white/5 text-center opacity-20">
+                <p class="text-[10px] font-black tracking-[1em] uppercase">KRAVY AI ENGINE • THE FUTURE OF FOOD ASSETS</p>
             </footer>
         </div>
     </div>
@@ -130,14 +557,453 @@
             if(job.userId === currentUserId && job.status === 'completed') selectRestaurant(job.userId, document.getElementById('selectedRestoName').innerText);
         });
 
+        socket.on('scraper:log', (data) => {
+            const consoleBox = document.getElementById('scraperConsole');
+            const list = document.getElementById('scraperLogsList');
+            consoleBox.classList.remove('hidden');
+            
+            const log = document.createElement('div');
+            const colors = { 'success': 'text-emerald-500', 'error': 'text-red-500', 'primary': 'text-orange-500' };
+            log.className = `flex gap-4 ${colors[data.status] || 'text-white/40'}`;
+            log.innerHTML = `<span class="opacity-20">[${new Date().toLocaleTimeString()}]</span><span>${data.message}</span>`;
+            list.appendChild(log);
+            consoleBox.scrollTop = consoleBox.scrollHeight;
+        });
+
         async function switchTab(tabId) {
             document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
-            document.getElementById(`tab-${tabId}`).classList.add('active');
+            const tabBtn = document.getElementById(`tab-${tabId}`);
+            if(tabBtn) tabBtn.classList.add('active');
             document.querySelectorAll('.tab-content').forEach(p => p.classList.add('hidden'));
             document.getElementById(`page-${tabId}`).classList.remove('hidden');
             if(tabId === 'sync') loadRestaurants();
             if(tabId === 'gallery') fetchData();
             if(tabId === 'history') pollJobs();
+            if(tabId === 'guardian') loadGuardian();
+            if(tabId === 'library') loadLibraryRestaurants();
+            if(tabId === 'verified') loadVerified();
+            if(tabId === 'auto-upload') loadAutoUpload();
+        }
+
+        async function loadAutoUpload() {
+            const sourceSelect = document.getElementById('auto-upload-source');
+            const targetSelect = document.getElementById('auto-upload-target');
+            
+            sourceSelect.innerHTML = '<option disabled selected>Fetching Scraped Registry...</option>';
+            
+            try {
+                // Fetch local scraped restaurants for source
+                const res = await fetch('/api/external-users');
+                const users = await res.json();
+                
+                sourceSelect.innerHTML = users.map(r => `
+                    <option value="${r.id}">${r.name || 'Unnamed Source'} [${r.id.slice(-6)}]</option>
+                `).join('');
+
+                // Initially populate target select with same IDs (assuming default match)
+                targetSelect.innerHTML = '<option value="DETECT">🔍 AUTO-DETECT FROM DASHBOARD</option>';
+                targetSelect.innerHTML += users.map(r => `
+                    <option value="${r.id}">${r.name || 'Unnamed Target'} [ID: ${r.id}]</option>
+                `).join('');
+            } catch (e) { sourceSelect.innerHTML = '<option disabled>Registry Error</option>'; }
+        }
+
+        async function startSinglePush() {
+            const manualId = document.getElementById('manual-target-id').value;
+            const targetId = manualId || document.getElementById('auto-upload-target').value;
+            const name = document.getElementById('manual-item-name').value;
+            const price = document.getElementById('manual-item-price').value;
+            const desc = document.getElementById('manual-item-desc').value;
+
+            if(!targetId) return alert('Specify a TARGET Zomato ID first.');
+            if(!name || !price) return alert('Name and Price are mandatory.');
+
+            const btn = document.getElementById('btn-single-push');
+            btn.innerText = '⚡ PUSHING...';
+            btn.disabled = true;
+
+            document.getElementById('bot-status-text').innerText = 'MANUAL PUSH';
+            document.getElementById('bot-progress-box').classList.remove('hidden');
+            document.getElementById('bot-logs').innerHTML = `<div class="text-emerald-400 tracking-widest uppercase font-black opacity-50 mb-4 animate-pulse">Manual Push Mode: [${name}] → [${targetId}]...</div>`;
+
+            try {
+                await fetch(`/api/auto-upload-single`, { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ targetId, name, price, desc })
+                });
+            } catch (e) { 
+                addBotLog(`❌ SYSTEM ERROR: ${e.message}`, 'error');
+                btn.disabled = false;
+                btn.innerText = 'RETRY PUSH';
+            } finally {
+                btn.disabled = false;
+                btn.innerText = '🔥 PUSH SINGLE ASSET';
+            }
+        }
+
+        async function startZomatoBot() {
+            const sourceId = document.getElementById('auto-upload-source').value;
+            const manualId = document.getElementById('manual-target-id').value;
+            const targetId = manualId || document.getElementById('auto-upload-target').value;
+            
+            if(!sourceId) return alert('Select a SOURCE restaurant (scraped data) first.');
+            if(!targetId) return alert('Specify a TARGET Zomato ID first.');
+
+            const btn = document.getElementById('btn-bot-start');
+            btn.innerText = '🛡️ BOT WARMUP...';
+            btn.disabled = true;
+
+            document.getElementById('bot-status-text').innerText = 'INITIALIZING';
+            document.getElementById('bot-progress-box').classList.remove('hidden');
+            document.getElementById('bot-logs').innerHTML = `<div class="text-primary tracking-widest uppercase font-black opacity-50 mb-4 animate-pulse">Mapping Mode: [${sourceId}] → [${targetId}]...</div>`;
+
+            try {
+                await fetch(`/api/auto-upload`, { 
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sourceId, targetId })
+                });
+            } catch (e) { 
+                addBotLog(`❌ SYSTEM ERROR: ${e.message}`, 'error');
+                btn.disabled = false;
+                btn.innerText = 'RETRY BOT LAUNCH';
+            }
+        }
+
+        function addBotLog(msg, status = 'primary') {
+            const logBox = document.getElementById('bot-logs');
+            const log = document.createElement('div');
+            log.className = `flex gap-4 border-l-2 py-1 pl-4 mb-2 animate-in slide-in-from-left-2 ${status === 'error' ? 'border-red-500 text-red-400' : status === 'success' ? 'border-emerald-500 text-emerald-400' : 'border-orange-500 text-dim'}`;
+            log.innerHTML = `
+                <span class="opacity-20 font-bold shrink-0">[${new Date().toLocaleTimeString()}]</span>
+                <span class="tracking-tight">${msg}</span>
+            `;
+            logBox.appendChild(log);
+            logBox.scrollTop = logBox.scrollHeight;
+        }
+
+        socket.on('scraper:log', (data) => {
+            // Check if we are on auto-upload tab to show logs there too
+            if (document.getElementById('page-auto-upload').classList.contains('hidden') === false) {
+                 addBotLog(data.message, data.status);
+                 
+                 // Handle Cookie Failure
+                 if (data.message.includes('SESSION EXPIRED')) {
+                      document.getElementById('re-login-warning').classList.remove('hidden');
+                      document.getElementById('bot-status-text').innerText = 'EXPIRED';
+                      const btn = document.getElementById('btn-bot-start');
+                      btn.disabled = false;
+                      btn.innerText = '🛡️ RE-VALIDATE & START';
+                 }
+
+                 // Dynamic Progress & Stat Calculation
+                 if (data.message.includes('PROCESSING:')) {
+                      const match = data.message.match(/\((\d+)\/(\d+)\)/);
+                      if (match) {
+                          const done = parseInt(match[1]);
+                          const total = parseInt(match[2]);
+                          const pc = Math.round((done/total) * 100);
+                          document.getElementById('bot-progress-percent').innerText = `${pc}%`;
+                          document.getElementById('bot-progress-bar').style.width = `${pc}%`;
+                          document.getElementById('bot-status-text').innerText = 'EXECUTING';
+                          document.getElementById('re-login-warning').classList.add('hidden');
+                      }
+                 }
+
+                 // SaaS Status Counters
+                 if (data.message.includes('SUCCESS:')) {
+                      const sMatch = data.message.match(/SUCCESS: (\d+)/);
+                      const fMatch = data.message.match(/FAILED: (\d+)/);
+                      if(sMatch) document.getElementById('bot-success-count').innerText = `⚡ SUCCESS: ${sMatch[1]}`;
+                      if(fMatch) document.getElementById('bot-failed-count').innerText = `🛑 FAILED: ${fMatch[1]}`;
+                 }
+
+                 if (data.message.includes('ALL TASKS COMPLETED') || data.message.includes('BATCH COMPLETED')) {
+                      document.getElementById('bot-status-text').innerText = 'COMPLETED';
+                      document.getElementById('bot-progress-percent').innerText = `100%`;
+                      document.getElementById('bot-progress-bar').style.width = `100%`;
+                      const btn = document.getElementById('btn-bot-start');
+                      btn.disabled = false;
+                      btn.innerText = '🚀 START NEXT BATCH';
+                 }
+            }
+        });
+
+        async function loadVerified() {
+            const grid = document.getElementById('verified-grid');
+            grid.innerHTML = '<div class="col-span-full py-40 text-center opacity-30 italic animate-pulse tracking-[0.5em]">FILTERING PRODUCTION ASSETS...</div>';
+            
+            try {
+                const res = await fetch('/api/best-assets');
+                const data = await res.json();
+                
+                if (data.length === 0) {
+                    grid.innerHTML = '<div class="col-span-full py-20 text-center text-dim bg-white/5 rounded-3xl border border-white/5 italic">No verified assets found. Perform a Shadow Scan to promote icons.</div>';
+                    return;
+                }
+
+                grid.innerHTML = data.map(item => `
+                    <div class="glass-card group overflow-hidden border-emerald-500/20 hover:border-emerald-500/50 bg-emerald-500/[0.02]">
+                        <div class="aspect-square bg-white/[0.02] relative overflow-hidden">
+                            <img src="${item.image}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-[1s]">
+                            <div class="absolute top-6 right-6">
+                                <div class="px-4 py-2 bg-emerald-500 text-black text-[9px] font-black rounded-full shadow-[0_0_15px_rgba(16,185,129,0.4)]">✓ VERIFIED</div>
+                            </div>
+                        </div>
+                        <div class="p-8">
+                            <h4 class="text-xl font-black uppercase tracking-tight truncate mb-2">${item.name}</h4>
+                            <div class="flex justify-between items-center text-[9px] text-dim font-black tracking-widest uppercase">
+                                <span>${item.category}</span>
+                                <span class="text-emerald-400">₹${item.price}</span>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) { grid.innerHTML = '<div class="text-red-500 py-40">Verification hub offline.</div>'; }
+        }
+
+        async function forceShadowScan() {
+            const btn = document.getElementById('btn-force-scan');
+            const originalText = btn.innerText;
+            btn.innerText = '⚡ SCANNING...';
+            btn.disabled = true;
+
+            const id = document.getElementById('lib-resto-id').innerText.split(': ')[1];
+            
+            try {
+                const res = await fetch(`/api/force-score/${id}`, { method: 'POST' });
+                const result = await res.json();
+                
+                btn.innerText = `✅ PROMOTED ${result.approved}`;
+                
+                // Refresh the menu view to show new status
+                const restoName = document.getElementById('lib-resto-name').innerText;
+                viewLibraryMenu(id, restoName);
+                
+                setTimeout(() => {
+                    btn.innerText = originalText;
+                    btn.disabled = false;
+                }, 3000);
+            } catch(e) {
+                btn.innerText = '❌ FAILED';
+                btn.disabled = false;
+            }
+        }
+
+        async function loadLibraryRestaurants() {
+            const grid = document.getElementById('library-grid');
+            grid.innerHTML = '<div class="col-span-full py-20 text-center opacity-30 italic animate-pulse tracking-[0.5em]">SCANNING DATABASE...</div>';
+            
+            try {
+                const res = await fetch('/api/external-users');
+                const users = await res.json();
+                
+                if (!users || users.length === 0) {
+                    grid.innerHTML = '<div class="col-span-full py-20 text-center opacity-30 italic animate-pulse tracking-[0.5em]">NO RESTAURANTS FOUND AT SOURCE</div>';
+                    return;
+                }
+
+                grid.innerHTML = users.map(r => {
+                    const rName = r.name || 'Unnamed Restaurant';
+                    const safeName = rName.replace(/'/g, "\\'");
+                    return `
+                    <div class="glass-card p-10 flex flex-col justify-between group hover:border-orange-500/40 relative overflow-hidden h-[300px]">
+                        <div class="absolute -right-6 -top-6 text-orange-500/5 text-9xl font-black">🏢</div>
+                        <div class="relative z-10">
+                            <div class="w-12 h-12 bg-orange-500/10 text-orange-500 rounded-2xl flex items-center justify-center text-xl mb-6 shadow-2xl shadow-orange-500/20">🏛️</div>
+                            <h4 class="text-2xl font-black group-hover:text-orange-500 transition-all uppercase tracking-tight line-clamp-2">${rName}</h4>
+                            <p class="text-[9px] font-mono opacity-30 mt-4">${r.id}</p>
+                        </div>
+                        <button onclick="viewLibraryMenu('${r.id}', '${safeName}')" class="relative z-10 w-full py-5 bg-white/5 border border-white/5 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-500 hover:text-black transition-all"> 📦 EXPLORE MENU </button>
+                    </div>
+                    `;
+                }).join('');
+            } catch (e) { 
+                console.error('Library Load Error:', e);
+                grid.innerHTML = `<div class="col-span-full text-red-500 text-center py-20 tracking-widest uppercase font-black text-[10px]">Registry Error: ${e.message}</div>`; 
+            }
+        }
+
+        async function viewLibraryMenu(id, name) {
+            document.getElementById('library-restaurant-view').classList.add('hidden');
+            document.getElementById('library-menu-view').classList.remove('hidden');
+            document.getElementById('lib-resto-name').innerText = name;
+            document.getElementById('lib-resto-id').innerText = `DATABASE IDENTIFIER: ${id}`;
+            
+            const grid = document.getElementById('library-menu-grid');
+            grid.innerHTML = '<div class="col-span-full py-40 text-center opacity-30 italic animate-pulse tracking-[0.5em]">EXTRACTING MENU BUFFER...</div>';
+            
+            try {
+                const res = await fetch(`/api/external-menu/${id}`);
+                const data = await res.json();
+                const allItems = [...data.pending, ...data.completed];
+                
+                document.getElementById('lib-item-count').innerText = `${allItems.length} ITEMS DETECTED`;
+                
+                grid.innerHTML = allItems.map(item => {
+                    const displayName = item.name || item.foodName;
+                    const displayImage = item.imageUrl || item.cloudinaryUrl || item.image;
+                    return `
+                        <div class="glass-card group overflow-hidden border-white/5 hover:border-orange-500/30">
+                            <div class="aspect-square bg-white/[0.02] relative overflow-hidden">
+                                ${displayImage ? `<img src="${displayImage}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-[1s]">` : '<div class="w-full h-full flex items-center justify-center text-4xl opacity-10">🍱</div>'}
+                                <div class="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black to-transparent">
+                                    <span class="px-3 py-1 bg-black/60 rounded-full text-[9px] font-black tracking-widest uppercase border border-white/10">₹${item.price || '0'}</span>
+                                </div>
+                            </div>
+                            <div class="p-6">
+                                <h4 class="text-lg font-black group-hover:text-orange-500 transition-colors uppercase tracking-tight truncate">${displayName}</h4>
+                                <p class="text-[9px] text-dim mt-2 uppercase tracking-widest font-bold">${item.category || 'General'}</p>
+                                <div class="mt-6 pt-6 border-t border-white/5 flex justify-between items-center">
+                                    <div class="flex items-center gap-2">
+                                        <div class="w-1.5 h-1.5 rounded-full ${displayImage ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-red-500'}"></div>
+                                        <span class="text-[8px] font-black uppercase tracking-widest opacity-40">${displayImage ? 'STABLE' : 'MISSING'}</span>
+                                    </div>
+                                    <button onclick="openOverrideModal('${item.id}', '${displayName.replace(/'/g, "\\'")}')" class="text-xs opacity-0 group-hover:opacity-100 p-2 hover:bg-white/10 rounded-xl transition-all">⚙️</button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            } catch (e) { grid.innerHTML = '<div class="text-red-500 py-40 text-center">Menu extraction failed.</div>'; }
+        }
+
+        function backToLibrary() {
+            document.getElementById('library-menu-view').classList.add('hidden');
+            document.getElementById('library-restaurant-view').classList.remove('hidden');
+        }
+
+        let currentShadowScore = { approved: 0, rejected: 0 };
+        socket.on('shadow:item', (data) => {
+            const log = document.getElementById('shadowResultsLog');
+            const progress = document.getElementById('shadowProgressBar');
+            const progText = document.getElementById('shadowProgressText');
+            
+            if(data.percent !== undefined) {
+                progress.style.width = data.percent + '%';
+                progText.innerText = data.percent + '%';
+            }
+
+            if(data.status === 'approved' || data.status === 'rejected') {
+                if(data.status === 'approved') currentShadowScore.approved++; else currentShadowScore.rejected++;
+                const card = document.createElement('div');
+                card.className = `glass-card p-6 flex items-center justify-between animate-in fade-in transition-all ${data.status === 'approved' ? 'border-emerald-500/20 bg-emerald-500/5' : 'border-red-500/20 bg-red-500/5'}`;
+                card.innerHTML = `<div><p class="font-bold">${data.name}</p><p class="text-[9px] uppercase tracking-widest opacity-40 mt-1">${data.status}</p></div><div class="text-xl font-black">${data.score}%</div>`;
+                log.prepend(card);
+            }
+
+            if(data.percent === 100) {
+                 setTimeout(() => {
+                    document.getElementById('shadowVerdict').classList.remove('hidden');
+                    document.getElementById('shadowApprovedCount').innerText = currentShadowScore.approved;
+                    document.getElementById('shadowRejectedCount').innerText = currentShadowScore.rejected;
+                    document.getElementById('shadowStartBtn').innerText = '🚀 Run Another Test';
+                    document.getElementById('shadowStartBtn').disabled = false;
+                 }, 1000);
+            }
+        });
+
+        async function startShadowTest() {
+            const btn = document.getElementById('shadowStartBtn');
+            btn.innerText = '📡 INITIATING...'; btn.disabled = true;
+            document.getElementById('shadowMonitor').classList.remove('hidden');
+            document.getElementById('shadowVerdict').classList.add('hidden');
+            document.getElementById('shadowResultsLog').innerHTML = '';
+            document.getElementById('shadowProgressBar').style.width = '0%';
+            currentShadowScore = { approved: 0, rejected: 0 };
+            
+            try {
+                const resUsers = await fetch('/api/external-users');
+                const users = await resUsers.json();
+                const targetId = users[0]?.id || 'TEST_USER';
+                document.getElementById('shadowRestoName').innerText = `Sampling: ${users[0]?.name || 'Live Environment'}`;
+
+                await fetch('/api/run-shadow-test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ restaurantId: targetId })
+                });
+            } catch (e) { alert('Shadow Engine failed!'); btn.disabled = false; }
+        }
+
+        async function triggerDirectImport() {
+            const url = document.getElementById('importUrlInput').value;
+            if(!url) return alert('Enter a URL');
+            const btn = document.getElementById('directBtn');
+            btn.innerText = '📡 LINKING...'; btn.disabled = true;
+            document.getElementById('scraperLogsList').innerHTML = '';
+            document.getElementById('scraperConsole').classList.remove('hidden');
+            
+            try {
+                const res = await fetch('/api/sync-direct', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+                const data = await res.json();
+                if(data.success) {
+                    alert('Direct Sync Successful! 🍱 ' + data.itemsCount + ' items saved.');
+                    fetchData();
+                } else {
+                    alert('Direct Sync failed: ' + (data.error || 'Unknown Error'));
+                }
+            } catch (e) { alert('Direct Import failed.'); }
+            finally { btn.innerText = 'Direct API Fetch'; btn.disabled = false; }
+        }
+
+        async function triggerZomatoImport() {
+            const url = document.getElementById('importUrlInput').value;
+            if(!url) return alert('Enter a URL');
+            const btn = document.getElementById('importBtn');
+            btn.innerText = '⚡ FETCHING...'; btn.disabled = true;
+            document.getElementById('scraperLogsList').innerHTML = '';
+            
+            try {
+                const res = await fetch('/api/sync-menu', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url })
+                });
+                const data = await res.json();
+                if(data.jobId) {
+                    alert('Import job live! 🚜 Check console below.');
+                }
+            } catch (e) { alert('Import failed.'); }
+            finally { btn.innerText = 'Fetch Assets'; btn.disabled = false; }
+        }
+
+        async function loadGuardian() {
+            const container = document.getElementById('guardian-list');
+            try {
+                const res = await fetch('/api/foods');
+                const foods = await res.json();
+                
+                document.getElementById('stableCount').innerText = foods.filter(f => f.confidence > 90).length;
+                document.getElementById('pendingVerifyCount').innerText = foods.filter(f => f.confidence > 50 && f.confidence < 90).length;
+                document.getElementById('removedCount').innerText = foods.filter(f => f.status === 'failed' || f.confidence < 20).length;
+
+                container.innerHTML = foods.map(f => `
+                    <div class="glass-card p-10 flex flex-col lg:flex-row items-center justify-between group hover:bg-white/[0.02]">
+                        <div class="flex items-center gap-10">
+                            <div class="w-32 h-32 bg-white/5 rounded-3xl overflow-hidden border border-white/5">
+                                <img src="${f.cloudinaryUrl}" class="w-full h-full object-cover">
+                            </div>
+                            <div>
+                                <h4 class="text-3xl font-black">${f.foodName}</h4>
+                                <p class="text-[10px] opacity-30 mt-2 uppercase tracking-widest">${f.userId || 'Global Asset'}</p>
+                                <div class="flex gap-4 mt-6">
+                                    <span class="px-4 py-2 bg-emerald-500/10 text-emerald-500 font-black text-[9px] uppercase tracking-widest rounded-full">Score: ${f.confidence}%</span>
+                                    <span class="px-4 py-2 bg-white/5 border border-white/10 text-white/40 font-black text-[9px] uppercase tracking-widest rounded-full">v1.2 Stable</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-4 mt-10 lg:mt-0">
+                            <button onclick="openOverrideModal('${f.id}', '${f.foodName.replace(/'/g, "\\'")}')" class="px-10 py-5 bg-white/5 border border-white/5 rounded-3xl font-black text-[10px] uppercase tracking-widest hover:bg-orange-600 transition-all shadow-xl shadow-orange-500/10">Manage Guardian</button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {}
         }
 
         async function fetchData() {
@@ -230,7 +1096,7 @@
 
         function renderItemRow(i, isSynced) {
             const displayName = i.name || i.foodName;
-            const displayImage = i.imageUrl || i.cloudinaryUrl || i.image; // Match Billing API 'imageUrl'
+            const displayImage = i.imageUrl || i.cloudinaryUrl || i.image;
             const itemId = i.id;
 
             return `
@@ -246,7 +1112,7 @@
                     </div>
                     <div id="item-actions-${itemId}">
                         ${isSynced ? `<button onclick="openOverrideModal('${i.id}', '${displayName.replace(/'/g, "\\'")}')" class="p-4 bg-white/5 hover:bg-white/10 rounded-2xl text-slate-500 hover:text-white border border-white/5">⚙️</button>`
-                                   : `<button onclick="syncSingleItem('${itemId}', '${displayName.replace(/'/g, "\\'")}')" class="bg-orange-500 hover:bg-orange-600 px-8 py-3 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-orange-500/20"> SYNC NOW </button>`}
+                                   : `<button onclick="syncSingleItem('${itemId}', '${displayName.replace(/'/g, "\\'")}')" class="bg-orange-500 hover:bg-orange-600 px-8 py-3 rounded-2xl font-black uppercase text-xs tracking-widest shadow-xl shadow-orange-500/20 text-black"> SYNC NOW </button>`}
                     </div>
                 </div>
             `;
@@ -278,7 +1144,7 @@
             try {
                 const res = await fetch('/api/scrape-external', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: currentUserId }) });
                 const data = await res.json();
-                if(data.success) { switchTab('history'); alert('Bulk job live!'); }
+                if(data.success) { switchTab('history'); }
             } catch (e) { alert('External bridge error'); }
             finally { btn.innerHTML = '🚀 SYNC ENTIRE MENU'; btn.disabled = false; }
         }
@@ -297,7 +1163,6 @@
                     <div class="group relative bg-[#0D0E14] rounded-[32px] overflow-hidden border border-white/[0.05] transition-all hover:scale-[1.02] hover:shadow-2xl hover:shadow-orange-500/10 h-full flex flex-col">
                         <div class="aspect-square w-full overflow-hidden bg-white/5 relative">
                             ${displayImage ? `<img src="${displayImage}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-[1.5s]">` : `<div class="w-full h-full flex items-center justify-center text-4xl opacity-20">🍽️</div>`}
-                            <div class="absolute top-4 left-4"><span class="w-5 h-5 rounded border ${displayName.toLowerCase().includes('chicken') || displayName.toLowerCase().includes('mutton') ? 'border-red-500' : 'border-emerald-500'} flex items-center justify-center p-[2px] bg-black/40 backdrop-blur-md"><span class="w-full h-full rounded-full ${displayName.toLowerCase().includes('chicken') || displayName.toLowerCase().includes('mutton') ? 'bg-red-500' : 'bg-emerald-500'}"></span></span></div>
                         </div>
                         <div class="p-8 flex-1 flex flex-col justify-between">
                             <div><h3 class="text-xl font-black mb-2 group-hover:text-orange-500 transition-colors uppercase tracking-tight">${displayName}</h3><p class="text-[10px] uppercase font-black opacity-30 tracking-[0.2em] mb-4">${item.category || 'Chef Specialties'}</p></div>
@@ -312,6 +1177,13 @@
         function closePreview() { document.getElementById('previewModal').classList.add('hidden'); document.body.style.overflow = 'auto'; }
         function backToRestaurants() { document.getElementById('selectedUserView').classList.add('hidden'); document.getElementById('restaurantView').classList.remove('hidden'); }
         function closeModal() { document.getElementById('overrideModal').classList.add('hidden'); }
+
+        function openOverrideModal(id, name) {
+            currentOverrideId = id;
+            document.getElementById('modalDishName').innerText = name;
+            document.getElementById('modalDishId').innerText = `ID: ${id}`;
+            document.getElementById('overrideModal').classList.remove('hidden');
+        }
 
         async function handleRescrape() {
             if(!currentOverrideId) return;
@@ -354,10 +1226,7 @@
                         </div>
                         <div class="flex items-center gap-6">
                             <div class="w-32 bg-white/5 h-2 rounded-full overflow-hidden"><div class="bg-orange-500 h-full transition-all duration-500" style="width: ${j.totalItems > 0 ? (j.processedCount/j.totalItems)*100 : 0}%"></div></div>
-                            <div class="flex gap-2">
-                                ${ (j.status === 'failed' || j.status === 'processing') ? `<button onclick="retryJob('${j.id}')" class="px-4 py-2 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-white rounded-xl text-[10px] font-black uppercase">🔄 RETRY</button>` : ''}
-                                <button onclick="deleteJob(event, '${j.id}')" class="p-3 bg-red-500/10 text-red-400 hover:bg-red-500 rounded-xl opacity-0 group-hover:opacity-100 transition-all">🗑️</button>
-                            </div>
+                            <button onclick="deleteJob(event, '${j.id}')" class="p-3 bg-red-500/10 text-red-400 hover:bg-red-500 rounded-xl opacity-0 group-hover:opacity-100 transition-all">🗑️</button>
                         </div>
                     </div>`;
                 }).join('');
@@ -379,6 +1248,81 @@
                 <div class="glass-card p-6 font-bold text-center"> <p class="text-[10px] opacity-50 uppercase tracking-widest text-orange-500">Uptime</p> <p class="text-3xl font-black">99%</p> </div>
             `;
         }
+
+        async function loadZomatoFeed() {
+            const grid = document.getElementById('zomato-feed-grid');
+            grid.innerHTML = '<div class="col-span-full py-40 text-center opacity-30 italic animate-pulse tracking-[0.5em]">CONNECTING TO PRODUCTION STREAM...</div>';
+            
+            try {
+                const res = await fetch('/api/zomato-items');
+                const data = await res.json();
+                
+                if (data.length === 0) {
+                    grid.innerHTML = '<div class="col-span-full py-20 text-center text-dim bg-white/5 rounded-3xl border border-white/5 italic">No Zomato production data yet. Start an auto-upload batch to see results.</div>';
+                    return;
+                }
+
+                grid.innerHTML = data.map(item => `
+                    <div class="glass-card group overflow-hidden border-white/5 hover:border-emerald-500/30" id="zomato-item-${item.id}">
+                        <div class="aspect-square bg-white/[0.02] relative overflow-hidden">
+                            ${item.image ? `<img src="${item.image}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-[1s]">` : '<div class="w-full h-full flex items-center justify-center text-4xl opacity-10">🍱</div>'}
+                            <div class="absolute top-6 right-6 flex flex-col gap-2 items-end">
+                                <div class="px-4 py-2 ${item.stabilityStatus === 'LIVE' ? 'bg-emerald-500' : item.stabilityStatus === 'REJECTED' ? 'bg-red-500' : 'bg-orange-500'} text-black text-[9px] font-black rounded-full shadow-xl">
+                                    ${item.stabilityStatus || 'PENDING'}
+                                </div>
+                            </div>
+                        </div>
+                        <div class="p-8">
+                            <div class="flex justify-between items-start gap-4 mb-4">
+                                <h4 class="text-xl font-black uppercase tracking-tight truncate">${item.name}</h4>
+                                <span class="text-emerald-400 font-black">₹${item.price}</span>
+                            </div>
+                            <div class="flex items-center gap-2 mb-6">
+                                <span class="p-1 bg-white/10 rounded text-[8px] font-bold opacity-40 uppercase tracking-widest">${item.restaurant?.name || 'Unknown Outlet'}</span>
+                            </div>
+                            <button onclick="verifyItem('${item.id}')" class="w-full py-4 bg-white/5 border border-white/5 rounded-2xl font-black text-[9px] uppercase tracking-widest hover:bg-emerald-500 hover:text-black transition-all"> 🔍 VERIFY FROM ZOMATO API </button>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) { grid.innerHTML = '<div class="text-red-500 py-40">Feed stream disconnected.</div>'; }
+        }
+
+        async function verifyItem(id) {
+            const btn = document.querySelector(`#zomato-item-${id} button`);
+            const originalText = btn.innerText;
+            btn.innerText = '⚡ VERIFYING...';
+            btn.disabled = true;
+
+            try {
+                await fetch(`/api/verify-zomato/${id}`, { method: 'POST' });
+                // Socket will handle the UI update
+            } catch (e) {
+                btn.innerText = '❌ FAILED';
+                btn.disabled = false;
+                setTimeout(() => btn.innerText = originalText, 2000);
+            }
+        }
+
+        socket.on('zomato:update', (item) => {
+            if (!document.getElementById('page-zomato-feed').classList.contains('hidden')) {
+                loadZomatoFeed(); // Simple refresh for now
+            }
+        });
+
+        // Handle Phone Number / OTP Modal
+        socket.on('zomato:login_required', (data) => {
+            const phone = prompt("ZOMATO LOGIN REQUIRED. Enter Phone Number:", "9027845348");
+            if (phone) {
+                socket.emit('zomato:phone_provided', { phone });
+            }
+        });
+
+        socket.on('zomato:otp_required', () => {
+            const otp = prompt("ENTER OTP RECEIVED ON YOUR PHONE:");
+            if (otp) {
+                socket.emit('zomato:otp_provided', { otp });
+            }
+        });
 
         fetchData();
         loadRestaurants();
