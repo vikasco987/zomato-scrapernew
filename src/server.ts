@@ -58,11 +58,18 @@ app.get("/api/external-users", async (req, res) => {
         missingImages: 0 // Will be calculated in menu view
     }));
 
-    res.json([...users, ...formattedLocal]);
+    const combined = [...users, ...formattedLocal].sort((a, b) => 
+        (a.name || "").toLowerCase().localeCompare((b.name || "").toLowerCase())
+    );
+
+    res.json(combined);
   } catch (e) { 
     // Fallback if billing server is down
     const localRestaurants = await prisma.restaurant.findMany();
-    res.json(localRestaurants.map(r => ({ id: r.id, name: r.name, isLocal: true })));
+    const fallback = localRestaurants.map(r => ({ id: r.id, name: r.name, isLocal: true }))
+        .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+    
+    res.json(fallback);
   }
 });
 
@@ -74,11 +81,18 @@ app.get("/api/external-menu/:userId", async (req, res) => {
   try {
     let externalItems = [];
     
-    // Check if it's a local restaurant ID first
-    const localResto = await prisma.restaurant.findUnique({ where: { id: userId } });
-    if (localResto) {
-        externalItems = await prisma.menuItem.findMany({ where: { restaurantId: userId } });
-    } else {
+    // 🛡️ Validate if userId is a valid MongoDB ObjectId
+    const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(userId);
+    
+    if (isValidObjectId) {
+        const localResto = await prisma.restaurant.findUnique({ where: { id: userId } });
+        if (localResto) {
+            externalItems = await prisma.menuItem.findMany({ where: { restaurantId: userId } });
+        }
+    }
+
+    // If no local items found, fetch from external billing
+    if (externalItems.length === 0) {
         const response = await fetch(`${EXTERNAL_BASE}/menu/${userId}`, {
             headers: { "x-scraper-secret": SECRET_KEY }
         });
@@ -90,7 +104,9 @@ app.get("/api/external-menu/:userId", async (req, res) => {
     });
 
     const pendingWithImages = externalItems.map((i: any) => {
-      const match = localCompleted.find(lc => lc.foodName.toLowerCase() === (i.name || i.foodName || "").toLowerCase());
+      const rawName = i.name || i.foodName || "";
+      const cleanedName = rawName.replace(/\(.*\)|\[.*\]|\d+\s*ml|\d+\s*lit/gi, "").trim();
+      const match = localCompleted.find(lc => lc.foodName.toLowerCase() === cleanedName.toLowerCase() || lc.foodName.toLowerCase() === rawName.toLowerCase());
       if (match && match.cloudinaryUrl) {
           return { ...i, imageUrl: match.cloudinaryUrl, _isLocalMatch: true };
       }
@@ -115,21 +131,89 @@ app.get("/api/external-menu/:userId", async (req, res) => {
 });
 
 app.post("/api/scrape-external", async (req, res) => {
-    const { userId } = req.body;
-    if(!userId) return res.status(400).json({ error: "User ID required" });
-    
-    // Get item count for the job record
-    let count = 0;
-    const localResto = await prisma.restaurant.findUnique({ where: { id: userId } });
-    if (localResto) {
-        count = await prisma.menuItem.count({ where: { restaurantId: userId } });
-    } else {
-        // Just a placeholder, queueManager will update it during execution
-        count = 0;
-    }
+    try {
+        const { userId } = req.body;
+        if(!userId) return res.status(400).json({ error: "User ID required" });
+        
+        let count = 0;
+        
+        const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(userId);
+        console.log(`[Server Scrape-External] userId: "${userId}", isValid: ${isValidObjectId}`);
 
-    const job = await queueManager.addJob(userId, count);
-    res.json({ success: true, jobId: job.id });
+        if (isValidObjectId) {
+            try {
+                const localResto = await (prisma as any).restaurant.findUnique({ where: { id: userId } });
+                if (localResto) {
+                    count = await (prisma as any).menuItem.count({ where: { restaurantId: userId } });
+                }
+            } catch (dbErr: any) {
+                console.error(`[Server DB Error] findUnique/count failed: ${dbErr.message}`);
+            }
+        }
+
+        const job = await queueManager.addJob(userId, count);
+        res.json({ success: true, jobId: job.id });
+    } catch (e: any) {
+        console.error(`🚨 [Scraper Bridge] Failed to Queue Job: ${e.message}`);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+import { scrapeLeads } from './services/leadScraper.js';
+
+app.post("/api/scrape-leads", (req, res) => {
+    try {
+        const { location, source } = req.body;
+        if (!location || !source) {
+            return res.status(400).json({ error: "Location and Source are required." });
+        }
+        
+        // Start Scraping in Background
+        scrapeLeads(location, source.toLowerCase()).catch(err => {
+            console.error(`🚨 [Background Scraper] Job Failed: ${err.message}`);
+        });
+        
+        res.json({ success: true, message: "Scraping started in background" });
+    } catch (e: any) {
+        console.error(`🚨 [Lead Scraper] Error: ${e.message}`);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.get("/api/leads/export", async (req, res) => {
+    try {
+        // Fetch all leads from the database
+        const leads = await (prisma as any).restaurantLead.findMany({
+            orderBy: { createdAt: 'desc' }
+        });
+        res.json(leads);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.get("/api/leads/history", async (req, res) => {
+    try {
+        const history = await (prisma as any).scrapingSession.findMany({
+            orderBy: { createdAt: 'desc' }
+        });
+        res.json(history);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.get("/api/leads/session/:id", async (req, res) => {
+    try {
+        const { id } = req.params;
+        const leads = await (prisma as any).restaurantLead.findMany({
+            where: { sessionId: id },
+            orderBy: { createdAt: 'desc' }
+        });
+        res.json(leads);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
 });
 
 /**
@@ -201,7 +285,13 @@ app.post("/api/force-score/:id", async (req, res) => {
     
     emitUpdate('scraper:log', { message: `⚡ INITIATING DEEP SCAN FOR RESTO: ${id}`, status: 'primary' });
     
-    const items = await prisma.menuItem.findMany({ where: { restaurantId: id } });
+    // 🛡️ Guard against malformed ObjectID
+    const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(id);
+    if (!isValidObjectId) {
+      return res.json({ success: true, approvedCount: 0, totalChecked: 0, message: "External ID skipped" });
+    }
+
+    const items = await (prisma as any).menuItem.findMany({ where: { restaurantId: id } });
     let approved = 0;
     let checked = 0;
 
@@ -209,7 +299,7 @@ app.post("/api/force-score/:id", async (req, res) => {
     const CHUNK_SIZE = 10;
     for(let i = 0; i < items.length; i += CHUNK_SIZE) {
         const chunk = items.slice(i, i + CHUNK_SIZE);
-        await Promise.all(chunk.map(async (item) => {
+        await Promise.all(chunk.map(async (item: any) => {
             if(!item.image) return;
             const alive = await isUrlAlive(item.image);
             if(alive) {
@@ -253,7 +343,7 @@ app.post("/api/auto-upload-single", async (req, res) => {
 });
 
 app.get("/api/best-assets", async (req, res) => {
-    const assets = await prisma.menuItem.findMany({
+    const assets = await (prisma as any).menuItem.findMany({
         where: { 
             stabilityStatus: "STABLE",
             image: { not: null }
@@ -282,8 +372,11 @@ app.get("/api/zomato-items", async (req, res) => {
 
 app.post("/api/verify-zomato/:id", async (req, res) => {
     const { id } = req.params;
-    // Mocking verification logic for now. In a real scenario, this would call Zomato API 
-    // or use Puppeteer to check the item status on the partner portal.
+    
+    // 🛡️ Guard against malformed ObjectID (Internal Items Only)
+    const isValidId = /^[0-9a-fA-F]{24}$/.test(id);
+    if (!isValidId) return res.status(400).json({ error: "Invalid Item ID format" });
+
     const item = await prisma.menuItem.findUnique({ where: { id } });
     if (!item) return res.status(404).json({ error: "Item not found" });
 
@@ -303,7 +396,11 @@ app.post("/api/verify-zomato/:id", async (req, res) => {
     res.json(updated);
 });
 
-httpServer.listen(3005, () => {
-    console.log("\n🔱 KRAVY DASHBOARD LIVE ON PORT 3005");
+const PORT = process.env.PORT || 3005;
+httpServer.listen(PORT, async () => {
+    console.log(`\n🔱 KRAVY DASHBOARD LIVE ON PORT ${PORT}`);
     startStabilityTracker(); // Start Guardian Monitor
+    
+    // 🛡️ RECOVER STUCK JOBS
+    await queueManager.recoverJobs();
 });

@@ -64,16 +64,26 @@ export async function scrapeZomatoMenu(restaurantUrl: string) {
 
     console.log(`🏢 [Zomato Scraper] Found Restaurant: ${restaurantName}`);
 
-    const restaurant = await prisma.restaurant.upsert({
-      where: { slug: restaurantSlug },
-      update: { name: restaurantName, url: restaurantUrl },
-      create: {
-        name: restaurantName,
-        slug: restaurantSlug,
-        url: restaurantUrl,
-        source: "zomato"
-      }
+    const existing = await (prisma as any).restaurant.findFirst({
+      where: { slug: restaurantSlug }
     });
+
+    let restaurant;
+    if (existing) {
+      restaurant = await (prisma as any).restaurant.update({
+        where: { id: existing.id },
+        data: { name: restaurantName, url: restaurantUrl }
+      });
+    } else {
+      restaurant = await (prisma as any).restaurant.create({
+        data: {
+          name: restaurantName,
+          slug: restaurantSlug,
+          url: restaurantUrl,
+          source: "zomato"
+        }
+      });
+    }
 
     // 4. Scrape Menu Items via JSON State [NEW: 2026 Gold Standard - Hyper-Recursive]
     emitUpdate('scraper:log', { message: `🧪 [PUPPETEER] EXTRACTING DEEP JSON STATE...`, status: 'primary' });

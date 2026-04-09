@@ -171,6 +171,7 @@
                 <button onclick="switchTab('import')" id="tab-import" class="nav-tab">🚜 IMPORT</button>
                 <button onclick="switchTab('shadow')" id="tab-shadow" class="nav-tab">🕵️ SHADOW</button>
                 <button onclick="switchTab('history')" id="tab-history" class="nav-tab">🌊 JOBS</button>
+                <a href="/lead-scraper.html" class="nav-tab text-yellow-400 font-black">📞 LEADS</a>
             </nav>
         </header>
 
@@ -228,9 +229,15 @@
         <!-- PAGE: Library (Restaurant Repository) -->
         <main id="page-library" class="tab-content hidden space-y-12">
             <div id="library-restaurant-view">
-                <div class="mb-12">
-                    <h2 class="text-4xl font-black tracking-tight text-white">🏛️ Restaurant Repository</h2>
-                    <p class="text-xs text-dim mt-2 tracking-widest uppercase">Browse all scraped restaurant identities and their deep-extracted menus.</p>
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
+                    <div>
+                        <h2 class="text-4xl font-black tracking-tight text-white">🏛️ Restaurant Repository</h2>
+                        <p class="text-xs text-dim mt-2 tracking-widest uppercase">Browse all scraped restaurant identities.</p>
+                    </div>
+                    <div class="relative w-full md:w-96 group">
+                        <div class="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-orange-500/50 group-focus-within:text-orange-500 transition-colors">🔍</div>
+                        <input type="text" id="library-search" onkeyup="filterLibrary()" placeholder="SEARCH REPOSITORY..." class="w-full bg-white/5 border border-white/5 rounded-2xl pl-14 pr-6 py-4 text-[10px] font-black tracking-widest focus:border-orange-500 focus:bg-white/[0.08] outline-none transition-all">
+                    </div>
                 </div>
                 <div id="library-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8"></div>
             </div>
@@ -364,9 +371,15 @@
         </main>
         <main id="page-sync" class="tab-content hidden space-y-12">
             <div id="restaurantView">
-                <div class="mb-12">
-                    <h2 class="text-4xl font-black tracking-tight">Bridge Gateway</h2>
-                    <p class="text-xs text-dim mt-2">Connect Kravy AI assets to live external billing points.</p>
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
+                    <div>
+                        <h2 class="text-4xl font-black tracking-tight">Bridge Gateway</h2>
+                        <p class="text-xs text-dim mt-2">Connect Kravy AI assets to live external billing points.</p>
+                    </div>
+                    <div class="relative w-full md:w-96 group">
+                        <div class="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-orange-500/50 group-focus-within:text-orange-500 transition-colors">🔍</div>
+                        <input type="text" id="bridge-search" onkeyup="filterBridge()" placeholder="SEARCH GATEWAY..." class="w-full bg-white/5 border border-white/5 rounded-2xl pl-14 pr-6 py-4 text-[10px] font-black tracking-widest focus:border-orange-500 focus:bg-white/[0.08] outline-none transition-all">
+                    </div>
                 </div>
                 <div id="restaurantGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"></div>
             </div>
@@ -570,17 +583,37 @@
             consoleBox.scrollTop = consoleBox.scrollHeight;
         });
 
+        function filterBridge() {
+            const query = document.getElementById('bridge-search').value.toLowerCase();
+            const cards = document.querySelectorAll('#restaurantGrid > div');
+            cards.forEach(card => {
+                const name = card.querySelector('h4').innerText.toLowerCase();
+                if(name.includes(query)) card.classList.remove('hidden');
+                else card.classList.add('hidden');
+            });
+        }
+
+        function filterLibrary() {
+            const query = document.getElementById('library-search').value.toLowerCase();
+            const cards = document.querySelectorAll('#library-grid > div');
+            cards.forEach(card => {
+                const name = card.querySelector('h4').innerText.toLowerCase();
+                if(name.includes(query)) card.classList.remove('hidden');
+                else card.classList.add('hidden');
+            });
+        }
+
         async function switchTab(tabId) {
             document.querySelectorAll('.nav-tab').forEach(b => b.classList.remove('active'));
             const tabBtn = document.getElementById(`tab-${tabId}`);
             if(tabBtn) tabBtn.classList.add('active');
             document.querySelectorAll('.tab-content').forEach(p => p.classList.add('hidden'));
             document.getElementById(`page-${tabId}`).classList.remove('hidden');
-            if(tabId === 'sync') loadRestaurants();
+            if(tabId === 'sync') { loadRestaurants(); document.getElementById('bridge-search').value = ''; }
             if(tabId === 'gallery') fetchData();
             if(tabId === 'history') pollJobs();
             if(tabId === 'guardian') loadGuardian();
-            if(tabId === 'library') loadLibraryRestaurants();
+            if(tabId === 'library') { loadLibraryRestaurants(); document.getElementById('library-search').value = ''; }
             if(tabId === 'verified') loadVerified();
             if(tabId === 'auto-upload') loadAutoUpload();
         }

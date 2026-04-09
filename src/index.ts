@@ -55,10 +55,15 @@ export async function scrapeAndSaveFood(foodName: string, userId: string | null 
                }
              });
               if (menuItemId) {
-                await (prisma as any).menuItem.update({
-                  where: { id: menuItemId },
-                  data: { image: cdnUrl, status: "completed" }
-                });
+                const isValidId = /^[0-9a-fA-F]{24}$/.test(menuItemId);
+                if (isValidId) {
+                  await (prisma as any).menuItem.update({
+                    where: { id: menuItemId },
+                    data: { image: cdnUrl, status: "completed" }
+                  });
+                } else {
+                  console.log(`🌍 [AI Pipeline] Success! Skipping local DB update for External Item: ${menuItemId}`);
+                }
               }
 
               console.log(`✅ [${foodName}] SYNC COMPLETED (${attempts + 1} attempts)`);
@@ -83,10 +88,15 @@ export async function scrapeAndSaveFood(foodName: string, userId: string | null 
   });
 
   if (menuItemId) {
-    await (prisma as any).menuItem.update({
-      where: { id: menuItemId },
-      data: { status: "failed", errorMessage: "Search failed after retries" }
-    });
+    const isValidId = /^[0-9a-fA-F]{24}$/.test(menuItemId);
+    if (isValidId) {
+      await (prisma as any).menuItem.update({
+        where: { id: menuItemId },
+        data: { status: "failed", errorMessage: "Search failed after retries" }
+      });
+    } else {
+      console.log(`🌍 [AI Pipeline] Skipping local DB update for External Item: ${menuItemId}`);
+    }
   }
 
   return null;
@@ -98,6 +108,13 @@ export async function scrapeAndSaveFood(foodName: string, userId: string | null 
 export async function scrapeMenuImagesForRestaurant(restaurantId: string) {
   console.log(`\n📦 STARTING BULK IMAGE SYNC FOR RESTAURANT: ${restaurantId}`);
   
+  // 🛡️ Validate if restaurantId is a valid MongoDB ObjectId
+  const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(restaurantId);
+  if (!isValidObjectId) {
+    console.warn(`⚠️ [Bulk Sync] Skipping Local DB lookup for External ID: ${restaurantId}`);
+    return;
+  }
+
   const menuItems = await (prisma as any).menuItem.findMany({
     where: { restaurantId, status: "pending" }
   });
@@ -141,7 +158,7 @@ async function main() {
 }
 
 // --- ENTRY POINT CHECK ---
-if (process.argv[1].endsWith('index.js')) {
+if (process.argv[1]?.endsWith('index.js')) {
     main()
         .catch(console.error)
         .finally(() => prisma.$disconnect());

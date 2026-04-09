@@ -11,6 +11,7 @@ class QueueManager {
   private isProcessing = false;
 
   async addJob(userId: string, totalItems?: number) {
+    console.log(`🆕 [Queue] Adding job for User: ${userId}`);
     const job = await prisma.scraperJob.create({
       data: { userId, status: "queued", totalItems: totalItems || 0 }
     });
@@ -20,43 +21,68 @@ class QueueManager {
     return job;
   }
 
+  /**
+   * 🛡️ RECOVERY: Mark 'processing' jobs as 'queued' on startup
+   */
+  async recoverJobs() {
+    console.log(`🔍 [Queue Recovery] Checking for stuck jobs...`);
+    const result = await prisma.scraperJob.updateMany({
+        where: { status: "processing" },
+        data: { status: "queued" }
+    });
+    if (result.count > 0) console.log(`♻️ [Queue Recovery] Re-queued ${result.count} stuck jobs.`);
+    this.processQueue();
+  }
+
   async processQueue() {
     if (this.isProcessing) return;
     this.isProcessing = true;
 
-    while (true) {
-      const nextJob = await prisma.scraperJob.findFirst({
-        where: { status: "queued" },
-        orderBy: { createdAt: "asc" }
-      });
+    console.log(`🚀 [Queue] Start Processing Loop...`);
 
-      if (!nextJob) {
-        this.isProcessing = false;
-        break;
-      }
-
-      // Update Processing State
-      const updatedJob = await prisma.scraperJob.update({
-        where: { id: nextJob.id },
-        data: { status: "processing" }
-      });
-      emitUpdate("job_update", updatedJob);
-
-      try {
-        await scrapeAndUpdateExternalMenu(nextJob.userId, nextJob.id);
-        const finalJob = await prisma.scraperJob.update({
-          where: { id: nextJob.id },
-          data: { status: "completed" }
+    try {
+      while (true) {
+        const nextJob = await prisma.scraperJob.findFirst({
+          where: { status: "queued" },
+          orderBy: { createdAt: "asc" }
         });
-        emitUpdate("job_update", finalJob);
-      } catch (err: any) {
-        const errorJob = await prisma.scraperJob.update({
+
+        if (!nextJob) break;
+
+        // Update Processing State
+        const updatedJob = await prisma.scraperJob.update({
           where: { id: nextJob.id },
-          data: { status: "failed", error: err.message }
+          data: { status: "processing" }
         });
-        emitUpdate("job_update", errorJob);
+        emitUpdate("job_update", updatedJob);
+
+        console.log(`🔌 [Queue] Running Job [${nextJob.id}] for User [${nextJob.userId}]`);
+
+        try {
+          await scrapeAndUpdateExternalMenu(nextJob.userId, nextJob.id);
+          
+          await prisma.scraperJob.update({
+            where: { id: nextJob.id },
+            data: { status: "completed" }
+          });
+        } catch (err: any) {
+          console.error(`❌ [Queue] Job [${nextJob.id}] FAILED: ${err.message}`);
+          await prisma.scraperJob.update({
+            where: { id: nextJob.id },
+            data: { status: "failed", error: err.message }
+          });
+        }
+
+        const finalJob = await prisma.scraperJob.findUnique({ where: { id: nextJob.id } });
+        if (finalJob) emitUpdate("job_update", finalJob);
+
+        await delay(2000);
       }
-      await delay(2000);
+    } catch (loopErr: any) {
+        console.error(`🚨 [Queue] LOOP CRITICAL ERROR: ${loopErr.message}`);
+    } finally {
+      this.isProcessing = false;
+      console.log(`🏁 [Queue] Loop Exited.`);
     }
   }
   async getJobs() {

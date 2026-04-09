@@ -24,17 +24,29 @@ export async function scrapeAndUpdateExternalMenu(userId: string, jobId?: string
   try {
     // 1. Fetch Menu Items (Check if Local Restaurant or External User)
     let items: any[] = [];
-    const localResto = await prisma.restaurant.findUnique({ where: { id: userId } });
+    const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(userId);
+    console.log(`🔍 [Bridge] Validating ID: "${userId}" -> isValid: ${isValidObjectId}`);
+    
+    let localResto: any = null;
+    if (isValidObjectId) {
+        console.log(`🏠 [Bridge] Attempting local DB lookup for ${userId}`);
+        localResto = await (prisma as any).restaurant.findUnique({ where: { id: userId } });
+    } else {
+        console.log(`🌍 [Bridge] Non-ObjectID detected. Skipping Local DB lookup.`);
+    }
 
     if (localResto) {
         console.log(`🏠 LOCAL SYSTEM: Processing assets for restaurant ${localResto.name}`);
         items = await prisma.menuItem.findMany({ 
-            where: { restaurantId: userId, OR: [{ image: "" }, { image: null }] } 
+            where: { restaurantId: userId } 
         });
     } else {
         console.log(`🌍 BRIDGE SYSTEM: Fetching missing assets from Billing...`);
-        const res = await axios.get(`${EXTERNAL_BASE}/menu/${userId}`, { headers, timeout: 5000 });
-        items = (res.data || []).filter((i: any) => !(i.imageUrl || i.image || i.cloudinaryUrl));
+        const res = await axios.get(`${EXTERNAL_BASE}/menu/${userId}`, { headers, timeout: 30000 });
+        
+        // 🚀 PROGRESS REVEAL: We process all items so the UI reflects 100% atomic progress.
+        // The Engine (scrapeAndSaveFood) will still use its own Internal Cache for speed.
+        items = (res.data || []).filter((i: any) => i.name || i.foodName);
     }
 
     if (items.length === 0) {

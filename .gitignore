@@ -22,3 +22,6 @@ tmp/
 !deploy_cake_fresh.js
 !src/**/*.ts
 !*.ts
+.cache/
+build/
+app_screenshot.png

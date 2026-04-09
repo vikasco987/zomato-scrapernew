@@ -37,7 +37,8 @@ export const emitUpdate = (event: string, data: any) => {
   if (io) {
     io.emit(event, data);
     if(event !== 'sync:item') {
-      console.log(`📡 [SOCKET] EMITTED: ${event} -> ${data.name || data.id || 'N/A'}`);
+    const msg = data.message || data.name || data.id || 'N/A';
+    console.log(`📡 [SOCKET] EMITTED: ${event} -> ${msg}`);
     }
   }
 };

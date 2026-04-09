@@ -49,31 +49,38 @@
     "node-cron": "^4.2.1",
     "openai": "^4.20.1",
     "p-limit": "^7.3.0",
+    "p-queue": "^9.1.1",
     "proxy-chain": "^2.7.1",
     "puppeteer": "^21.5.2",
     "puppeteer-extra": "^3.3.6",
     "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "random-useragent": "^0.5.0",
     "sharp": "^0.34.5",
     "socket.io": "^4.8.3"
   },
   "build": {
     "appId": "com.kravy.aiscraper",
     "productName": "Kravy AI Scraper",
-    "directories": {
-      "output": "dist-app"
-    },
+    "asar": false,
     "files": [
       "dist/**/*",
       "public/**/*",
+      ".env",
       "electron-main.js",
       "package.json",
-      "node_modules/**/*"
+      "node_modules/**/*",
+      "!node_modules/puppeteer-extra-plugin-stealth/evasions/chrome.app"
     ],
-    "win": {
-      "target": "nsis"
+    "directories": {
+      "output": "dist-app"
     },
     "mac": {
-      "target": "dmg"
+      "target": "dmg",
+      "icon": "build/icon.png"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.png"
     }
   }
 }

@@ -77,16 +77,26 @@ export async function syncMenuDirect(url: string) {
 
     const restaurantSlug = url.split("/").filter(Boolean).pop() || Date.now().toString();
 
-    const restaurant = await prisma.restaurant.upsert({
-      where: { slug: restaurantSlug },
-      update: { name: restaurantName, url: url },
-      create: { 
-        name: restaurantName, 
-        slug: restaurantSlug, 
-        url: url, 
-        source: isSwiggy ? "swiggy" : "zomato"
-      }
+    const existing = await (prisma as any).restaurant.findFirst({
+      where: { slug: restaurantSlug }
     });
+
+    let restaurant;
+    if (existing) {
+      restaurant = await (prisma as any).restaurant.update({
+        where: { id: existing.id },
+        data: { name: restaurantName, url: url }
+      });
+    } else {
+      restaurant = await (prisma as any).restaurant.create({
+        data: { 
+          name: restaurantName, 
+          slug: restaurantSlug, 
+          url: url, 
+          source: isSwiggy ? "swiggy" : "zomato"
+        }
+      });
+    }
 
     const total = menuItems.length;
 

@@ -1,48 +1,73 @@
-const { app, BrowserWindow } = require('electron');
-const path = require('path');
-const isDev = require('electron-is-dev');
-const { spawn } = require('child_process');
+import { app, BrowserWindow, shell } from 'electron';
+import path from 'path';
+import isDev from 'electron-is-dev';
+import { fork } from 'child_process';
+import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// ⚡ Load .env from the current directory exactly, not process.cwd()
+dotenv.config({ path: path.join(__dirname, '.env') });
 
 let mainWindow;
 let serverProcess;
 
 function startServer() {
     // 🚀 Start our Express Server in the background
+    // In production, __dirname is the root of our app inside app.asar
     const serverPath = path.join(__dirname, 'dist', 'server.js');
-    serverProcess = spawn('node', [serverPath], {
-        env: { ...process.env, PORT: 3000 }
+    
+    console.log(`[Main]: Starting server at ${serverPath}`);
+
+    serverProcess = fork(serverPath, [], {
+        env: { ...process.env, PORT: 3000, NODE_ENV: isDev ? 'development' : 'production' },
+        stdio: 'inherit' // Pipe stdout/stderr to the main process terminal
     });
 
-    serverProcess.stdout.on('data', (data) => {
-        console.log(`[Server]: ${data}`);
+    serverProcess.on('error', (err) => {
+        console.error(`[Server Error]: ${err}`);
     });
-
-    serverProcess.stderr.on('data', (data) => {
-        console.error(`[Server Error]: ${data}`);
+    
+    serverProcess.on('exit', (code) => {
+        console.log(`[Server]: Process exited with code ${code}`);
     });
 }
 
 function createWindow() {
     mainWindow = new BrowserWindow({
-        width: 1200,
-        height: 800,
+        width: 1280,
+        height: 850,
         title: "Kravy AI Scraper Desktop",
-        backgroundColor: '#0a0b10',
+        backgroundColor: '#05060a',
         webPreferences: {
             nodeIntegration: false,
-            contextIsolation: true
+            contextIsolation: true,
+            devTools: true // Allow inspecting in production for debugging
         },
         autoHideMenuBar: true,
         icon: path.join(__dirname, 'public', 'favicon.ico') 
     });
 
-    // 🕒 Wait a bit for the server to spin up
-    setTimeout(() => {
-        mainWindow.loadURL('http://localhost:3000');
-    }, 3000);
+    // 🕒 Wait for the server (3 seconds usually enough, but retry if needed)
+    const loadUrl = () => {
+        mainWindow.loadURL('http://localhost:3000').catch(() => {
+            console.log('[Main]: Server not ready, retrying...');
+            setTimeout(loadUrl, 1000);
+        });
+    };
+
+    setTimeout(loadUrl, 2500);
 
     mainWindow.on('closed', () => {
         mainWindow = null;
+    });
+
+    // Open external links in the default browser
+    mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+        shell.openExternal(url);
+        return { action: 'deny' };
     });
 }
 

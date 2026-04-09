@@ -22,16 +22,26 @@ export async function scrapeSwiggyMenu(restaurantUrl: string) {
     const restaurantSlug = restaurantUrl.split("/").pop() || Date.now().toString();
 
     // Create or find restaurant
-    const restaurant = await prisma.restaurant.upsert({
-      where: { slug: restaurantSlug },
-      update: { name: restaurantName, url: restaurantUrl },
-      create: { 
-        name: restaurantName, 
-        slug: restaurantSlug, 
-        url: restaurantUrl, 
-        source: "swiggy" 
-      }
+    const existing = await (prisma as any).restaurant.findFirst({
+      where: { slug: restaurantSlug }
     });
+
+    let restaurant;
+    if (existing) {
+      restaurant = await (prisma as any).restaurant.update({
+        where: { id: existing.id },
+        data: { name: restaurantName, url: restaurantUrl }
+      });
+    } else {
+      restaurant = await (prisma as any).restaurant.create({
+        data: { 
+          name: restaurantName, 
+          slug: restaurantSlug, 
+          url: restaurantUrl, 
+          source: "swiggy" 
+        }
+      });
+    }
 
     // In a real Swiggy implementation, we would extract items from:
     // data.cards[x].groupedCard.cardGroupMap.REGULAR.cards[y].card.card.itemCards
