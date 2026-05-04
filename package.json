@@ -11,7 +11,9 @@
     "electron": "npx tsc && electron .",
     "dist": "npx tsc && electron-builder",
     "db:push": "npx prisma db push",
-    "db:studio": "npx prisma studio"
+    "db:studio": "npx prisma studio",
+    "zomato:login": "npx tsc && node dist/scripts/zomato-session-login.js",
+    "zomato:outlets": "npx tsc && node dist/scripts/scrape-outlets.js"
   },
   "keywords": [],
   "author": "",

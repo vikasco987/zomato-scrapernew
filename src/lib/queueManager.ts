@@ -49,10 +49,14 @@ class QueueManager {
 
         if (!nextJob) break;
 
-        // Update Processing State
+        // Update Processing State (RESET COUNTERS on fresh start/resume)
         const updatedJob = await prisma.scraperJob.update({
           where: { id: nextJob.id },
-          data: { status: "processing" }
+          data: { 
+            status: "processing",
+            processedCount: 0,
+            failedCount: 0
+          }
         });
         emitUpdate("job_update", updatedJob);
 

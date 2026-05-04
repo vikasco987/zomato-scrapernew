@@ -373,12 +373,15 @@
             <div id="restaurantView">
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-12">
                     <div>
-                        <h2 class="text-4xl font-black tracking-tight">Bridge Gateway</h2>
+                        <h2 class="text-4xl font-black tracking-tight" id="bridge-header">Bridge Gateway</h2>
                         <p class="text-xs text-dim mt-2">Connect Kravy AI assets to live external billing points.</p>
                     </div>
-                    <div class="relative w-full md:w-96 group">
-                        <div class="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-orange-500/50 group-focus-within:text-orange-500 transition-colors">🔍</div>
-                        <input type="text" id="bridge-search" onkeyup="filterBridge()" placeholder="SEARCH GATEWAY..." class="w-full bg-white/5 border border-white/5 rounded-2xl pl-14 pr-6 py-4 text-[10px] font-black tracking-widest focus:border-orange-500 focus:bg-white/[0.08] outline-none transition-all">
+                    <div class="flex items-center gap-4 w-full md:w-auto">
+                        <div class="relative w-full md:w-96 group">
+                            <div class="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none text-orange-500/50 group-focus-within:text-orange-500 transition-colors">🔍</div>
+                            <input type="text" id="bridge-search" onkeyup="filterBridge()" placeholder="SEARCH GATEWAY..." class="w-full bg-white/5 border border-white/5 rounded-2xl pl-14 pr-6 py-4 text-[10px] font-black tracking-widest focus:border-orange-500 focus:bg-white/[0.08] outline-none transition-all">
+                        </div>
+                        <button onclick="manualBridgeEntry()" class="px-6 py-4 bg-orange-500/10 border border-orange-500/20 text-orange-500 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-orange-500 hover:text-black transition-all"> 🔗 PRO-LINK MANUAL </button>
                     </div>
                 </div>
                 <div id="restaurantGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"></div>
@@ -536,7 +539,20 @@
         </div>
     </div>
 
-    <!-- MODAL: LIVE PREVIEW -->
+    <!-- MODAL: BULK CONFIRM -->
+    <div id="bulkConfirmModal" class="fixed inset-0 bg-black/95 backdrop-blur-2xl z-[250] hidden flex items-center justify-center p-8 transition-all duration-500">
+        <div class="glass-card w-full max-w-xl p-16 text-center space-y-10 border-white/10 shadow-[0_0_100px_rgba(249,115,22,0.1)]">
+            <div class="w-24 h-24 bg-orange-500/10 text-orange-500 rounded-full flex items-center justify-center text-4xl mx-auto animate-bounce">🚀</div>
+            <div>
+                <h3 class="text-4xl font-black tracking-tight text-white mb-4 uppercase">Initiate Bulk Sync?</h3>
+                <p class="text-dim text-sm leading-relaxed">The Kravy AI engine will perform a deep scan of the external menu and synchronize all missing high-fidelity assets to your local repository. This process is fully autonomous.</p>
+            </div>
+            <div class="grid grid-cols-2 gap-6 pt-6">
+                <button onclick="closeBulkConfirm()" class="py-5 bg-white/5 border border-white/5 rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-white/10 transition-all"> ✕ ABORT </button>
+                <button onclick="executeBulkScrape()" id="confirmBulkBtn" class="btn-primary py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest"> ⚡ START PIPELINE </button>
+            </div>
+        </div>
+    </div>
     <div id="previewModal" class="fixed inset-0 bg-black/98 backdrop-blur-3xl z-[200] hidden overflow-y-auto animate-in fade-in zoom-in duration-500 p-4">
         <div class="max-w-6xl mx-auto py-24 px-8 relative">
             <button onclick="closePreview()" class="fixed top-10 right-10 w-16 h-16 bg-white/5 border border-white/10 rounded-full flex items-center justify-center hover:bg-red-500/20 text-xl transition-all z-[210]">✕</button>
@@ -1078,6 +1094,8 @@
             try {
                 const res = await fetch('/api/external-users');
                 currentRestaurants = await res.json();
+                console.log("BRIDGE GATEWAY LOADED:", currentRestaurants.length, "users");
+                document.getElementById('bridge-header').innerText = `Bridge Gateway (${currentRestaurants.length})`;
                 document.getElementById('restaurantGrid').innerHTML = currentRestaurants.map(r => `
                     <div class="glass-card p-8 flex flex-col justify-between group hover:bg-white/[0.02]">
                         <div>
@@ -1088,26 +1106,47 @@
                             <h4 class="text-2xl font-black group-hover:text-orange-500 transition-all">${r.name || 'Restaurant'}</h4>
                             <p class="text-[10px] text-slate-600 font-mono truncate mt-2 mb-6 opacity-50">${r.id}</p>
                         </div>
-                        <button onclick="selectRestaurant('${r.id}', '${r.name}')" class="w-full bg-white/5 border border-white/5 py-4 rounded-xl font-bold transition-all hover:bg-orange-500 hover:border-transparent"> INSPECT MENU </button>
+                        <button onclick="selectRestaurant('${r.id}', '${r.name?.replace(/'/g, "\\'")}')" class="w-full bg-white/5 border border-white/5 py-4 rounded-xl font-bold transition-all hover:bg-orange-500 hover:border-transparent"> INSPECT MENU </button>
                     </div>
                 `).join('');
             } catch (e) { grid.innerHTML = '<div class="col-span-full text-red-500 text-center">Billing server offline.</div>'; }
         }
 
+        function manualBridgeEntry() {
+            const id = prompt("ENTER BILLING USER ID (Clerk ID or Mongo ID):");
+            if (!id) return;
+            const name = prompt("ENTER RESTAURANT NAME (Optional):") || "MANUAL LINK";
+            selectRestaurant(id, name);
+        }
+
         async function selectRestaurant(id, name) {
-            currentUserId = id;
-            document.getElementById('restaurantView').classList.add('hidden');
-            document.getElementById('selectedRestoName').innerText = name || id;
-            document.getElementById('selectedRestoId').innerText = `BILLING ID: ${id}`;
-            document.getElementById('selectedUserView').classList.remove('hidden');
+            // 🛡️ Prevent re-rendering if we are already viewing this restaurant and a job just finished
+            if (currentUserId === id && !document.getElementById('selectedUserView').classList.contains('hidden')) {
+                console.log("♻️ [UI] Update received for current restaurant. Soft refreshing menu only.");
+            } else {
+                currentUserId = id;
+                document.getElementById('restaurantView').classList.add('hidden');
+                document.getElementById('selectedRestoName').innerText = name || id;
+                document.getElementById('selectedRestoId').innerText = `BILLING ID: ${id}`;
+                document.getElementById('selectedUserView').classList.remove('hidden');
+            }
+            
             const list = document.getElementById('externalMenuList');
-            list.innerHTML = '<p class="p-20 opacity-30 text-center italic tracking-[0.3em]">LINKING LIVE ASSETS...</p>';
+            // Only show loader if the list is empty (first load)
+            if (list.innerHTML.includes('p-20') || list.innerHTML === '') {
+                list.innerHTML = '<p class="p-20 opacity-30 text-center italic tracking-[0.3em]">LINKING LIVE ASSETS...</p>';
+            }
+
             try {
                 const res = await fetch(`/api/external-menu/${id}`);
                 const data = await res.json();
                 currentMenuCache = data;
                 renderMenuList(data);
-            } catch (e) { list.innerHTML = '<p class="text-red-500 p-20 text-center">Link Failed.</p>'; }
+            } catch (e) { 
+                if (list.innerHTML.includes('LINKING')) {
+                    list.innerHTML = '<p class="text-red-500 p-20 text-center">Link Failed.</p>'; 
+                }
+            }
         }
 
         function renderMenuList(data) {
@@ -1171,15 +1210,58 @@
             finally { actions.innerHTML = '<button class="text-emerald-500 px-6 py-2 font-black text-xs uppercase tracking-widest">DONE</button>'; }
         }
 
+        function closeBulkConfirm() {
+            document.getElementById('bulkConfirmModal').classList.add('hidden');
+        }
+
         async function triggerAllScrape() {
-            if(!confirm('Bulk AI extraction will start. Continue?')) return;
-            const btn = document.getElementById('scrapeAllBtn'); btn.innerHTML = '⚡ DISPATCHING...'; btn.disabled = true;
+            if(!currentUserId) return alert('No restaurant selected! Please select one from the gateway first.');
+            executeBulkScrape();
+        }
+
+        async function executeBulkScrape() {
+            const btn = document.getElementById('scrapeAllBtn'); 
+            const modalBtn = document.getElementById('confirmBulkBtn');
+            const originalHTML = btn.innerHTML;
+            
+            modalBtn.innerHTML = '⚡ DISPATCHING...'; 
+            modalBtn.disabled = true;
+            btn.innerHTML = '⚡ DISPATCHING...'; 
+            btn.disabled = true;
+
             try {
-                const res = await fetch('/api/scrape-external', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: currentUserId }) });
+                const res = await fetch('/api/scrape-external', { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify({ userId: currentUserId }) 
+                });
                 const data = await res.json();
-                if(data.success) { switchTab('history'); }
-            } catch (e) { alert('External bridge error'); }
-            finally { btn.innerHTML = '🚀 SYNC ENTIRE MENU'; btn.disabled = false; }
+                if(data.success) { 
+                    btn.innerHTML = '✅ JOB QUEUED';
+                    closeBulkConfirm();
+                    setTimeout(() => {
+                        switchTab('history');
+                        btn.innerHTML = originalHTML;
+                        btn.disabled = false;
+                        modalBtn.innerHTML = '⚡ START PIPELINE';
+                        modalBtn.disabled = false;
+                    }, 1500);
+                } else {
+                    alert('Sync failed: ' + (data.error || 'Unknown error'));
+                    btn.innerHTML = originalHTML;
+                    btn.disabled = false;
+                    modalBtn.innerHTML = '⚡ START PIPELINE';
+                    modalBtn.disabled = false;
+                    closeBulkConfirm();
+                }
+            } catch (e) { 
+                alert('External bridge error: ' + e.message); 
+                btn.innerHTML = originalHTML;
+                btn.disabled = false;
+                modalBtn.innerHTML = '⚡ START PIPELINE';
+                modalBtn.disabled = false;
+                closeBulkConfirm();
+            }
         }
 
         function openPreview() {

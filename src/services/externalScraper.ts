@@ -19,7 +19,7 @@ export async function scrapeAndUpdateExternalMenu(userId: string, jobId?: string
     "x-scraper-secret": SECRET_KEY
   };
 
-  const limit = pLimit(12); // 👈 12 Items in Parallel (Turbo Local Mode)
+  const limit = pLimit(8); // 👈 8 Items in Parallel (Optimized for Local + Browser Reuse)
 
   try {
     // 1. Fetch Menu Items (Check if Local Restaurant or External User)
@@ -41,64 +41,75 @@ export async function scrapeAndUpdateExternalMenu(userId: string, jobId?: string
             where: { restaurantId: userId } 
         });
     } else {
-        console.log(`🌍 BRIDGE SYSTEM: Fetching missing assets from Billing...`);
+        console.log(`🌍 BRIDGE SYSTEM: Fetching missing assets from Billing for [${userId}]...`);
         const res = await axios.get(`${EXTERNAL_BASE}/menu/${userId}`, { headers, timeout: 30000 });
         
-        // 🚀 PROGRESS REVEAL: We process all items so the UI reflects 100% atomic progress.
-        // The Engine (scrapeAndSaveFood) will still use its own Internal Cache for speed.
-        items = (res.data || []).filter((i: any) => i.name || i.foodName);
-    }
-
-    if (items.length === 0) {
-        console.warn("⚠️ No missing items found for this target.");
-        return { success: true, processed: 0 };
+        // Handle both array and { pending, completed } or other formats
+        const rawData = res.data;
+        if (Array.isArray(rawData)) {
+            items = rawData.filter((i: any) => i.name || i.foodName);
+        } else if (rawData && typeof rawData === 'object') {
+            const pending = Array.isArray(rawData.pending) ? rawData.pending : [];
+            const completed = Array.isArray(rawData.completed) ? rawData.completed : [];
+            items = [...pending, ...completed].filter((i: any) => i.name || i.foodName);
+        }
     }
 
     if (jobId) {
-       await prisma.scraperJob.update({ where: { id: jobId }, data: { totalItems: items.length } });
+        // Essential: Sync actual count to DB for UI
+        await prisma.scraperJob.update({ 
+            where: { id: jobId }, 
+            data: { totalItems: items.length } 
+        });
     }
 
-    console.log(`⚡ PIEPLINE: Processing ${items.length} items in PARALLEL (Concurrency: 5)...`);
+    if (items.length === 0) {
+        console.warn("⚠️ No items found for this target.");
+        return { success: true, processed: 0 };
+    }
 
-    let processedCount = 0;
+    // 🧼 GROUP BY BASE DISH (Ensures variants like Full/Half get the EXACT SAME image)
+    const dishGroups = new Map<string, any[]>();
+    items.forEach((item: any) => {
+        const baseName = item.name.replace(/\(.*\)|\[.*\]|\d+\s*ml|\d+\s*lit|[-/]\s*[HFhfrR]\b|\b(half|full|quarter|small|large|medium|regular)\b/gi, "").trim();
+        const key = baseName.toLowerCase();
+        if (!dishGroups.has(key)) dishGroups.set(key, []);
+        dishGroups.get(key)?.push(item);
+    });
+
+    console.log(`⚡ PIPELINE: Processing ${dishGroups.size} Unique Dishes (Managing ${items.length} total variants)...`);
+
     let successCount = 0;
+    const baseNames = Array.from(dishGroups.keys());
 
-    // 🏆 PARALLEL EXECUTION MAP
-    const results = await Promise.all(items.map((item: any) => 
+    // 🏆 PARALLEL EXECUTION OVER UNIQUE DISHES
+    await Promise.all(baseNames.map((baseNameKey: string) => 
         limit(async () => {
-            // 🧹 Clean Dish Name (Remove sizes, packaging info)
-            let dishName = item.name.replace(/\(.*\)|\[.*\]|\d+\s*ml|\d+\s*lit/gi, "").trim();
-            const itemId = item.id;
-
+            const variants = dishGroups.get(baseNameKey) || [];
+            const displayDishName = variants[0].name.replace(/\(.*\)|\[.*\]|\d+\s*ml|\d+\s*lit/gi, "").trim();
+            
             try {
-                // 🧠 Use Central AI Orchestrator (Auto-Caches & Scores)
-                const record = await scrapeAndSaveFood(dishName, userId);
+                // 🧠 Scrape ONCE for the base dish
+                const record = await scrapeAndSaveFood(displayDishName, userId);
 
                 if (record && record.cloudinaryUrl) {
-                    await axios.patch(`${EXTERNAL_BASE}/menu/update/${itemId}`, { 
-                        imageUrl: record.cloudinaryUrl 
-                    }, { headers, timeout: 5000 });
-                    successCount++;
+                    // ✅ Apply the same image to ALL variants (Full, Half, etc.)
+                    await Promise.all(variants.map(v => 
+                        axios.patch(`${EXTERNAL_BASE}/menu/update/${v.id}`, { 
+                            imageUrl: record.cloudinaryUrl 
+                        }, { headers, timeout: 5000 }).catch(e => console.error(`⚠️ Update Failed for variant ${v.id}`))
+                    ));
+                    successCount += variants.length;
                 }
             } catch (err: any) {
-                console.error(`❌ [${dishName}] Engine Error:`, err.message);
+                console.error(`❌ [${displayDishName}] Sync Error:`, err.message);
             } finally {
-                // 📊 ATOMIC PROGRESS SYNC (Avoiding Deadlocks)
                 if (jobId) {
-                    let retries = 3;
-                    while (retries > 0) {
-                        try {
-                            await prisma.scraperJob.update({
-                                where: { id: jobId },
-                                data: { processedCount: { increment: 1 } }
-                            });
-                            break; // Success
-                        } catch (e) {
-                            retries--;
-                            if (retries === 0) console.error(`⚠️ DB_CONFLICT: [${jobId}] Progress drop.`);
-                            await new Promise(r => setTimeout(r, 100));
-                        }
-                    }
+                    // Increment by the number of variants processed
+                    await prisma.scraperJob.update({
+                        where: { id: jobId },
+                        data: { processedCount: { increment: variants.length } }
+                    }).catch(() => {});
                 }
             }
         })
@@ -106,7 +117,6 @@ export async function scrapeAndUpdateExternalMenu(userId: string, jobId?: string
 
     console.log(`\n🏁 PIPELINE COMPLETE: ${successCount}/${items.length} Items Live.`);
     return { success: true, processed: successCount };
-
   } catch (err: any) {
     console.error("❌ Bridge Pipeline Error:", err.message);
     throw err;

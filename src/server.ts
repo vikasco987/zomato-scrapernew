@@ -49,6 +49,20 @@ app.get("/api/external-users", async (req, res) => {
     });
     const users = await response.json();
     
+    // Normalize users to ensure they have an 'id' that the frontend can use
+    const normalizedUsers = users.map((u: any) => ({
+        ...u,
+        id: u.id || u.clerkId || (u._id?.$oid) || u._id
+    }));
+    
+    console.log(`🌉 [Bridge] Fetched ${normalizedUsers.length} external users.`);
+    const shepabi = normalizedUsers.find((u: any) => (u.name || "").includes("SHEPABI"));
+    if (shepabi) {
+        console.log(`✅ [Bridge] SHEPABI found in normalization: ${shepabi.id}`);
+    } else {
+        console.log(`❌ [Bridge] SHEPABI NOT found in normalization!`);
+    }
+    
     // Also include local restaurants so user can sync them too
     const localRestaurants = await prisma.restaurant.findMany();
     const formattedLocal = localRestaurants.map(r => ({
@@ -58,7 +72,7 @@ app.get("/api/external-users", async (req, res) => {
         missingImages: 0 // Will be calculated in menu view
     }));
 
-    const combined = [...users, ...formattedLocal].sort((a, b) => 
+    const combined = [...normalizedUsers, ...formattedLocal].sort((a, b) => 
         (a.name || "").toLowerCase().localeCompare((b.name || "").toLowerCase())
     );
 
@@ -136,9 +150,7 @@ app.post("/api/scrape-external", async (req, res) => {
         if(!userId) return res.status(400).json({ error: "User ID required" });
         
         let count = 0;
-        
         const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(userId);
-        console.log(`[Server Scrape-External] userId: "${userId}", isValid: ${isValidObjectId}`);
 
         if (isValidObjectId) {
             try {
@@ -148,6 +160,26 @@ app.post("/api/scrape-external", async (req, res) => {
                 }
             } catch (dbErr: any) {
                 console.error(`[Server DB Error] findUnique/count failed: ${dbErr.message}`);
+            }
+        } else {
+            // 🌍 Fetch count from External Billing for atomic UI progress
+            try {
+                const EXTERNAL_BASE = process.env.EXTERNAL_API_BASE || "https://billing.kravy.in/api/external";
+                const fetchRes = await fetch(`${EXTERNAL_BASE}/menu/${userId}`, {
+                    headers: { "x-scraper-secret": process.env.SCRAPER_SECRET_KEY || "kravy_scraper_secret_2026" }
+                });
+                const items: any = await fetchRes.json();
+                
+                if (Array.isArray(items)) {
+                    count = items.length;
+                } else if (items && typeof items === 'object') {
+                    // Handle { pending: [], completed: [] } format
+                    const pendingCount = Array.isArray(items.pending) ? items.pending.length : 0;
+                    const completedCount = Array.isArray(items.completed) ? items.completed.length : 0;
+                    count = pendingCount + completedCount;
+                }
+            } catch (err: any) {
+                console.error(`[Bridge Count Fetch] Failed: ${err.message}`);
             }
         }
 
@@ -342,6 +374,18 @@ app.post("/api/auto-upload-single", async (req, res) => {
     res.json({ success: true, message: `Single Asset Queued: ${name} -> ${targetId}` });
 });
 
+app.get("/api/foods", async (req, res) => {
+    try {
+        const foods = await prisma.foodImage.findMany({
+            orderBy: { updatedAt: 'desc' },
+            take: 100
+        });
+        res.json(foods);
+    } catch (e) {
+        res.status(500).json({ error: "Failed to fetch food images" });
+    }
+});
+
 app.get("/api/best-assets", async (req, res) => {
     const assets = await (prisma as any).menuItem.findMany({
         where: { 
@@ -368,6 +412,64 @@ app.get("/api/zomato-items", async (req, res) => {
         include: { restaurant: true }
     });
     res.json(items);
+});
+
+// --- INDIVIDUAL ASSET CONTROLS ---
+
+app.post("/api/rescrape/:id", async (req, res) => {
+    const { id } = req.params;
+    const { scrapeAndSaveFood } = await import("./index.js");
+
+    try {
+        const food = await prisma.foodImage.findUnique({ where: { id: id as string } });
+        if (!food) return res.status(404).json({ error: "Asset not found" });
+
+        console.log(`⚡ [Re-scrape] Forcing update for: ${food.foodName}`);
+        const updated = await scrapeAndSaveFood(food.foodName, food.userId, true);
+        res.json(updated);
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post("/api/upload-manual/:id", upload.single('image'), async (req, res) => {
+    const { id } = req.params;
+    if (!req.file) return res.status(400).json({ error: "No image uploaded" });
+
+    try {
+        const food = await prisma.foodImage.findUnique({ where: { id: id as string } });
+        if (!food) return res.status(404).json({ error: "Asset not found" });
+
+        console.log(`📤 [Manual Upload] Updating asset: ${food.foodName}`);
+
+        // Upload buffer to Cloudinary
+        const result = await new Promise((resolve, reject) => {
+            const stream = cloudinary.uploader.upload_stream(
+                { folder: "food-menu", public_id: `${food.foodName.replace(/\s+/g, '-')}-${Date.now()}` },
+                (error, result) => {
+                    if (error) reject(error);
+                    else resolve(result);
+                }
+            );
+            stream.end(req.file?.buffer);
+        });
+
+        const cdnUrl = (result as any).secure_url;
+
+        const updated = await prisma.foodImage.update({
+            where: { id: id as string },
+            data: { 
+                cloudinaryUrl: cdnUrl, 
+                status: "completed", 
+                isManual: true,
+                updatedAt: new Date() 
+            }
+        });
+
+        res.json({ success: true, url: cdnUrl });
+    } catch (e: any) {
+        res.status(500).json({ error: e.message });
+    }
 });
 
 app.post("/api/verify-zomato/:id", async (req, res) => {

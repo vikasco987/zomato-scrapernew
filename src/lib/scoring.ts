@@ -19,19 +19,20 @@ export function scoreImage(img: { url: string; width?: number; height?: number }
   // 2. Technical Dimension Check (+3 for HD)
   if (img.width && img.width > 400) score += 3;
 
-  // 3. Domain Authority (+4 for trusted food blogs/CDNs)
+  // 3. Domain Authority (+4 for trusted food/beverage domains)
   const trustedDomains = [
     "pinimg", "hebbarskitchen", "vegrecipesofindia", "zmtcdn", 
-    "swiggy", "foodviva", "indianhealthyrecipes"
+    "swiggy", "foodviva", "indianhealthyrecipes", "cocacola", "pepsico",
+    "fanta", "nespresso", "starbucks"
   ];
   if (trustedDomains.some(domain => url.includes(domain))) {
     score += 4;
   }
 
-  // 4. Reject Non-Food Noise (-15 for UI elements)
-  const noiseKeywords = ["logo", "icon", "banner", "placeholder", "default", "avatar"];
+  // 4. Reject Non-Food Noise (-25 for UI/Stock elements - INCREASED PENALTY)
+  const noiseKeywords = ["logo", "icon", "banner", "placeholder", "default", "avatar", "stock", "alamy", "shutterstock", "dreamstime", "watermark", "text", "price", "label"];
   if (noiseKeywords.some(k => url.includes(k))) {
-    score -= 15;
+    score -= 25;
   }
 
   return score;

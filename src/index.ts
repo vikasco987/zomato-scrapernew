@@ -35,11 +35,12 @@ export async function scrapeAndSaveFood(foodName: string, userId: string | null 
     
     if (result.success && result.candidates.length > 0) {
       // 🧠 AI SCORING (Sort by confidence)
+      const { scoreImage } = await import("./lib/scoring.js");
       const rankedItems = result.candidates
-        .map(c => ({ ...c, score: pickBestImage([c], foodName) ? 100 : 0 })) // Basic filter, we could refine this
+        .map(c => ({ ...c, score: scoreImage(c, foodName) }))
         .sort((a, b) => b.score - a.score);
 
-      for (const item of result.candidates) {
+      for (const item of rankedItems) {
         try {
           const cdnUrl = await uploadImageFromUrl(item.url, foodName);
           if (cdnUrl) {

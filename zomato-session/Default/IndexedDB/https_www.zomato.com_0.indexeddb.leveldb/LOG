@@ -1,0 +1,11 @@
+2026/04/12-11:05:58.528 95f70f Reusing MANIFEST /Users/vikas/.gemini/antigravity/scratch/zomato-scraper/zomato-session/Default/IndexedDB/https_www.zomato.com_0.indexeddb.leveldb/MANIFEST-000001
+2026/04/12-11:05:58.529 95f70f Recovering log #3
+2026/04/12-11:05:58.536 95f70f Reusing old log /Users/vikas/.gemini/antigravity/scratch/zomato-scraper/zomato-session/Default/IndexedDB/https_www.zomato.com_0.indexeddb.leveldb/000003.log 
+2026/04/12-11:05:58.553 95f744 Level-0 table #5: started
+2026/04/12-11:05:58.566 95f744 Level-0 table #5: 24419 bytes OK
+2026/04/12-11:05:58.568 95f744 Delete type=0 #3
+2026/04/12-11:05:58.569 95f70f Manual compaction at level-0 from '\x00\x05\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x06\x00\x00\x00' @ 0 : 0; will stop at (end)
+2026/04/12-11:05:58.860 95f746 Level-0 table #7: started
+2026/04/12-11:05:58.861 95f746 Level-0 table #7: 2989 bytes OK
+2026/04/12-11:05:58.863 95f746 Delete type=0 #4
+2026/04/12-11:05:58.863 95f70f Manual compaction at level-0 from '\x00\x06\x00\x00\x00' @ 72057594037927935 : 1 .. '\x00\x07\x00\x00\x00' @ 0 : 0; will stop at (end)

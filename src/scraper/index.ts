@@ -4,7 +4,68 @@ import { anonymizeProxy } from 'proxy-chain';
 import { randomJitter, getRandomUserAgent, cleanDishName } from './utils.js';
 
 // @ts-ignore
+// @ts-ignore
 puppeteer.use(StealthPlugin());
+
+let sharedBrowser: any = null;
+let browserPromise: Promise<any> | null = null;
+
+/**
+ * 🔒 SHARED BROWSER INSTANCE (With Atomic Initialization Lock)
+ */
+async function getBrowser() {
+  if (sharedBrowser) return sharedBrowser;
+  if (browserPromise) return browserPromise;
+
+  browserPromise = (async () => {
+    try {
+      const proxyList = (process.env.PROXY_LIST || "").split(",").filter(Boolean);
+      const launchArgs = [
+        '--no-sandbox', 
+        '--disable-setuid-sandbox', 
+        '--disable-dev-shm-usage', 
+        '--disable-gpu',
+        '--disable-software-rasterizer',
+        '--hide-scrollbars',
+        '--window-size=1280,800'
+      ];
+      
+      if (proxyList.length > 0) {
+        const rawProxy = proxyList[Math.floor(Math.random() * proxyList.length)];
+        const finalProxy = await anonymizeProxy(rawProxy);
+        launchArgs.push(`--proxy-server=${finalProxy}`);
+      }
+
+      // @ts-ignore
+      sharedBrowser = await (puppeteer as any).launch({ 
+        headless: "new", 
+        args: launchArgs,
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined 
+      });
+
+      // Handle unexpected disconnection
+      sharedBrowser.on('disconnected', () => {
+          console.warn("⚠️ [Scraper] Shared browser disconnected. Resetting...");
+          sharedBrowser = null;
+          browserPromise = null;
+      });
+
+      return sharedBrowser;
+    } catch (err) {
+      browserPromise = null;
+      throw err;
+    }
+  })();
+
+  return browserPromise;
+}
+
+export async function closeBrowser() {
+    if (sharedBrowser) {
+        await sharedBrowser.close();
+        sharedBrowser = null;
+    }
+}
 
 interface ScrapeResult {
   success: boolean;
@@ -14,43 +75,34 @@ interface ScrapeResult {
 
 /**
  * 🛠️ PRODUCTION SCRAPER (TRIPLE FALLBACK: DDG -> BING -> GOOGLE)
+ * 🚀 PERFORMANCE BOOST: Reuses shared browser instance.
  */
 export async function scrapeFoodImages(foodName: string): Promise<ScrapeResult> {
-  const proxyList = (process.env.PROXY_LIST || "").split(",").filter(Boolean);
-  let browser: any = null;
-  let finalProxy: string | null = null;
+  let page: any = null;
 
   try {
-    if (proxyList.length > 0) {
-      const rawProxy = proxyList[Math.floor(Math.random() * proxyList.length)];
-      finalProxy = await anonymizeProxy(rawProxy);
-    }
-
-    const launchArgs = [
-      '--no-sandbox', 
-      '--disable-setuid-sandbox', 
-      '--disable-dev-shm-usage', 
-      '--disable-gpu',
-      '--disable-software-rasterizer',
-      '--hide-scrollbars'
-    ];
-    if (finalProxy) launchArgs.push(`--proxy-server=${finalProxy}`);
-
-    // @ts-ignore
-    browser = await (puppeteer as any).launch({ 
-      headless: "new", 
-      args: launchArgs,
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined // Essential for Docker
-    });
-    const page = await browser.newPage();
+    const browser = await getBrowser();
+    page = await browser.newPage();
+    
     await page.setUserAgent(getRandomUserAgent());
     await page.setDefaultNavigationTimeout(45000);
 
     const cleanName = cleanDishName(foodName);
-    const searchTerms = `${cleanName} dish food hd`;
+    
+    // 🥤 SMART BEVERAGE DETECTION
+    const beverageKeywords = ['tea', 'coffee', 'chai', 'pepsi', 'coke', 'coca-cola', 'cola', 'drink', 'juice', 'shake', 'lassi', 'mocktail', 'cocktail', 'cold drink', 'soda', 'water', 'limca', 'sprite', 'fanta', 'dew', 'thumbs up'];
+    const isBeverage = beverageKeywords.some(k => cleanName.toLowerCase().includes(k));
+    
+    // 4. Reject Non-Food Noise (-25 for UI/Stock elements - INCREASED PENALTY)
+    const noiseKeywords = ["logo", "icon", "banner", "placeholder", "default", "avatar", "stock", "alamy", "shutterstock", "dreamstime", "watermark", "text", "price", "label"];
+    
+    const searchTerms = isBeverage 
+        ? `${cleanName} drink beverage glass hd -text -watermark`
+        : `${cleanName} dish food hd -text -watermark`;
+        
     const query = encodeURIComponent(searchTerms);
 
-    console.log(`🔍 [${foodName}] Searching for: ${searchTerms}`);
+    console.log(`🔍 [${foodName}] Searching for: ${searchTerms} (isBeverage: ${isBeverage})`);
 
     // --- FALLBACK 1: DuckDuckGo ---
     const ddgUrl = `https://duckduckgo.com/?q=${query}&iax=images&ia=images`;
@@ -93,12 +145,12 @@ export async function scrapeFoodImages(foodName: string): Promise<ScrapeResult> 
       });
     }
 
-    await browser.close();
+    await page.close();
     return { success: candidates.length > 0, candidates };
 
   } catch (error: any) {
     console.error(`❌ SCRAPE_CRASH [${foodName}]: ${error.message}`);
-    if (browser) await browser.close();
+    if (page) await page.close();
     return { success: false, candidates: [], error: error.message };
   }
 }

@@ -20,9 +20,22 @@ export const getRandomUserAgent = () =>
  * Removes (full), (half), [V], etc to get pure food terms.
  */
 export const cleanDishName = (name: string) => {
-    return name
-        .replace(/\(.*\)/g, '')
-        .replace(/\[.*\]/g, '')
+    // Preserve sizes like 500ml, 1L, 250ml but remove generic text in parens
+    let cleaned = name;
+    
+    // If it contains a size pattern, don't just strip everything in parens
+    const hasSize = /\d+\s*(ml|l|ltr|kg|gm|pcs)/i.test(name);
+    
+    if (!hasSize) {
+        cleaned = cleaned.replace(/\(.*\)/g, '').replace(/\[.*\]/g, '');
+    } else {
+        cleaned = cleaned.replace(/[()\[\]]/g, ' ');
+    }
+
+    // 🏆 ADVANCED VARIANT CLEANING (H/F/R, Half/Full, etc.)
+    cleaned = cleaned.replace(/[-/]\s*[HFhfrR]\b|\b(half|full|quarter|small|large|medium|regular)\b/gi, "");
+
+    return cleaned
         .replace(/[^a-zA-Z0-9\s]/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();

@@ -15,23 +15,25 @@ puppeteer.use(StealthPlugin());
  * Features: Fingerprint Masking, Session Isolation, Human Scroll/Movement, Peak Hour Protection.
  */
 export async function runZomatoUploadBot(sourceId: string, targetId: string) {
-    // 🔐 GLOBAL PERSISTENT SESSION
-    const sessionPath = path.resolve(`./sessions/zomato_pro_v2`);
+    // 🔐 GLOBAL PERSISTENT SESSION (Requested: zomato-session)
+    const sessionPath = path.resolve(`./zomato-session`);
     if (!fs.existsSync(sessionPath)) fs.mkdirSync(sessionPath, { recursive: true });
 
-    const browser = (await (puppeteer as any).launch({
-        headless: false,
-        defaultViewport: null,
-        userDataDir: sessionPath, // 🛡️ REUSES LOGGED IN STATE
-        args: [
-            '--no-sandbox', 
-            '--disable-setuid-sandbox', 
-            '--start-maximized',
-            '--disable-blink-features=AutomationControlled',
-        ]
-    })) as any;
+    let browser: any = null;
 
     try {
+        browser = (await (puppeteer as any).launch({
+            headless: false,
+            defaultViewport: null,
+            userDataDir: sessionPath, // 🛡️ REUSES LOGGED IN STATE (Bhai level persistent)
+            args: [
+                '--no-sandbox', 
+                '--disable-setuid-sandbox', 
+                '--start-maximized',
+                '--disable-blink-features=AutomationControlled',
+            ]
+        })) as any;
+
         const page = await browser.newPage();
         
         // --- 0. SMART FINGERPRINT & BEHAVIOR ---
@@ -167,22 +169,24 @@ export async function runZomatoUploadBot(sourceId: string, targetId: string) {
  * 🎯 SINGLE ITEM MANUAL PUSH BOT
  */
 export async function runSingleItemUploadBot(targetId: string, itemData: { name: string, price: number, description?: string }) {
-    const sessionPath = path.resolve(`./sessions/zomato_pro_v2`);
+    const sessionPath = path.resolve(`./zomato-session`);
     if (!fs.existsSync(sessionPath)) fs.mkdirSync(sessionPath, { recursive: true });
 
-    const browser = (await (puppeteer as any).launch({
-        headless: false,
-        defaultViewport: null,
-        userDataDir: sessionPath,
-        args: [
-            '--no-sandbox', 
-            '--disable-setuid-sandbox', 
-            '--start-maximized',
-            '--disable-blink-features=AutomationControlled',
-        ]
-    })) as any;
+    let browser: any = null;
 
     try {
+        browser = (await (puppeteer as any).launch({
+            headless: false,
+            defaultViewport: null,
+            userDataDir: sessionPath,
+            args: [
+                '--no-sandbox', 
+                '--disable-setuid-sandbox', 
+                '--start-maximized',
+                '--disable-blink-features=AutomationControlled',
+            ]
+        })) as any;
+
         const page = await browser.newPage();
         console.log(`🛡️ [SINGLE] INITIATING PRO-PUSH: ${itemData.name}`);
         emitUpdate('scraper:log', { message: `🛡️ [SINGLE] PUSHING ${itemData.name}...`, status: 'primary' });

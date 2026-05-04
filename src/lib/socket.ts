@@ -1,6 +1,8 @@
 import { Server } from "socket.io";
 import { Server as HttpServer } from "http";
 
+import { zomatoEvents } from "./zomato-events.js";
+
 let io: Server;
 
 export const initSocket = (server: HttpServer) => {
@@ -15,13 +17,11 @@ export const initSocket = (server: HttpServer) => {
     console.log("🔌 CLIENT_LINKED: New dashboard session active.");
     
     socket.on("zomato:phone_provided", (data) => {
-        const { zomatoEvents } = (require("./zomato-events.js") as any);
         zomatoEvents.emit("phone_received", data.phone);
     });
 
     socket.on("zomato:otp_provided", (data) => {
-        const { zomatoEvents } = (require("./zomato-events.js") as any);
-        zomatoEvents.emit("otp_received", data.otp);
+        zomatoEvents.emit("otp_provided", data.otp);
     });
   });
 

@@ -7,37 +7,59 @@ import cloudinary from "./cloudinary.js";
  */
 export async function uploadImageFromUrl(imageUrl: string, dishName: string) {
   try {
-    // 🔥 CRITICAL FIX: Strip invalid characters (&, (, ), etc.) for Cloudinary public_id
     const sanitizedDish = dishName
       .replace(/\s+/g, "-")
-      .replace(/[^a-zA-Z0-9-]/g, "") // Allow alphanumeric and dashes
+      .replace(/[^a-zA-Z0-9-]/g, "")
       .toLowerCase();
       
     const publicId = `${sanitizedDish}-${Date.now()}`;
 
-    console.log(`☁️ Cloudinary: Direct Fetching ${dishName}...`);
+    console.log(`☁️ Cloudinary: Attempting Direct Fetch for ${dishName}...`);
     
-    const result = await cloudinary.uploader.upload(imageUrl, {
-      folder: "food-menu",
-      public_id: publicId,
-      overwrite: false, // Ensures we don't accidentally overwrite different items
+    try {
+      const result = await cloudinary.uploader.upload(imageUrl, {
+        folder: "food-menu",
+        public_id: publicId,
+        overwrite: false,
+        transformation: [
+          { width: 500, crop: "limit" },
+          { quality: "auto:eco" },
+          { fetch_format: "auto" }
+        ]
+      });
+      console.log(`✅ [${dishName}] Direct Cloud URL: ${result.secure_url}`);
+      return result.secure_url;
+    } catch (directErr: any) {
+      console.warn(`⚠️ [${dishName}] Direct Fetch blocked. Switching to Buffer Sync...`);
+      
+      // 🔥 FALLBACK: Fetch to Local Buffer first (Bypasses most hotlink protections)
+      const axios = (await import("axios")).default;
+      const response = await axios.get(imageUrl, { 
+        responseType: 'arraybuffer',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        },
+        timeout: 10000
+      });
 
-      // 🔥 AUTO COMPRESSION + OPTIMIZATION (THE AI FLOW)
-      transformation: [
-        { width: 500, crop: "limit" }, // Resize to professional width
-        { quality: "auto:eco" },       // AI Smart Compression (Maximum speed/size ratio)
-        { fetch_format: "auto" }        // Serve as WebP/AVIF automatically based on browser support
-      ]
-    });
+      const buffer = Buffer.from(response.data);
+      const base64Image = `data:${response.headers['content-type']};base64,${buffer.toString('base64')}`;
 
-    console.log(`✅ [${dishName}] Cloud URL: ${result.secure_url}`);
-    return result.secure_url;
-  } catch (err: any) {
-    if (err.message.includes("already exists")) {
-       console.warn(`⚠️ Duplicate skipped: ${dishName}`);
-       return null;
+      const result = await cloudinary.uploader.upload(base64Image, {
+        folder: "food-menu",
+        public_id: publicId,
+        transformation: [
+          { width: 500, crop: "limit" },
+          { quality: "auto:eco" },
+          { fetch_format: "auto" }
+        ]
+      });
+
+      console.log(`✅ [${dishName}] Buffer Sync Success: ${result.secure_url}`);
+      return result.secure_url;
     }
-    console.error(`❌ Cloud Upload failed (${dishName}):`, err.message);
+  } catch (err: any) {
+    console.error(`❌ [${dishName}] Total Upload Failure:`, err.message);
     return null;
   }
 }

@@ -1,7 +1,15 @@
-import { prisma } from "./src/db/index.js";
-async function run() {
-  const all = await (prisma as any).restaurant.findMany();
-  console.log(`TOTAL RESTOS IN DB: ${all.length}`);
-  all.forEach((r: any) => console.log(`- ${r.name} (${r.id})`));
+import { PrismaClient } from '@prisma/client';
+const prisma = new PrismaClient();
+
+async function main() {
+    console.log('Listing all restaurants in DB...');
+    const restos = await prisma.restaurant.findMany();
+    console.log(`Total Restaurants: ${restos.length}`);
+    restos.forEach(r => {
+        console.log(`- ID: ${r.id} | Name: ${r.name} | URL: ${r.url}`);
+    });
 }
-run().finally(() => (prisma as any).$disconnect());
+
+main()
+  .catch(console.error)
+  .finally(() => prisma.$disconnect());
