@@ -1,0 +1,14 @@
+import { scrapeAndUpdateExternalMenu } from '../services/externalScraper.js';
+
+async function main() {
+    const userId = "user_3DOkdP1FLCOvbL3vRfmYjdvghBg";
+    console.log(`🚀 STARTING LIVE SYNC FOR USER: ${userId}`);
+    try {
+        const result = await scrapeAndUpdateExternalMenu(userId);
+        console.log(`\n✅ SYNC FINISHED! Result:`, JSON.stringify(result, null, 2));
+    } catch (err) {
+        console.error(`\n❌ CRITICAL SYNC ERROR:`, err);
+    }
+}
+
+main();

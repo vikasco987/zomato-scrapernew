@@ -97,8 +97,8 @@ export async function scrapeFoodImages(foodName: string): Promise<ScrapeResult> 
     const noiseKeywords = ["logo", "icon", "banner", "placeholder", "default", "avatar", "stock", "alamy", "shutterstock", "dreamstime", "watermark", "text", "price", "label"];
     
     const searchTerms = isBeverage 
-        ? `${cleanName} drink beverage glass hd -text -watermark`
-        : `${cleanName} dish food hd -text -watermark`;
+        ? `${cleanName} drink glass`
+        : `${cleanName} dish food`;
         
     const query = encodeURIComponent(searchTerms);
 

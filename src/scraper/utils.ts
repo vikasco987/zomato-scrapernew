@@ -20,19 +20,27 @@ export const getRandomUserAgent = () =>
  * Removes (full), (half), [V], etc to get pure food terms.
  */
 export const cleanDishName = (name: string) => {
-    // Preserve sizes like 500ml, 1L, 250ml but remove generic text in parens
-    let cleaned = name;
-    
-    // If it contains a size pattern, don't just strip everything in parens
-    const hasSize = /\d+\s*(ml|l|ltr|kg|gm|pcs)/i.test(name);
+    // 1. Fix common typos and standardize search terms
+    let cleaned = name.toLowerCase()
+        .replace(/\bgauva\b/g, 'guava')
+        .replace(/\bvanila\b/g, 'vanilla')
+        .replace(/\bchoclate\b/g, 'chocolate')
+        .replace(/\bchees\b/g, 'cheese')
+        .replace(/\bcold coffee\b/g, 'iced coffee')
+        .replace(/\bveg\.\b/g, 'veg')
+        .replace(/\bnon-veg\b/g, 'non veg');
+
+    // 2. Preserve sizes like 500ml, 1L, 250ml but remove generic text in parens
+    const hasSize = /\d+\s*(ml|l|ltr|kg|gm|pcs)/i.test(cleaned);
     
     if (!hasSize) {
-        cleaned = cleaned.replace(/\(.*\)/g, '').replace(/\[.*\]/g, '');
+        // Robust cleaning: removes (R), (V), (Full), etc. individually
+        cleaned = cleaned.replace(/\s*\([^)]*\)/g, '').replace(/\s*\[[^\]]*\]/g, '');
     } else {
         cleaned = cleaned.replace(/[()\[\]]/g, ' ');
     }
 
-    // 🏆 ADVANCED VARIANT CLEANING (H/F/R, Half/Full, etc.)
+    // 3. 🏆 ADVANCED VARIANT CLEANING (H/F/R, Half/Full, etc.)
     cleaned = cleaned.replace(/[-/]\s*[HFhfrR]\b|\b(half|full|quarter|small|large|medium|regular)\b/gi, "");
 
     return cleaned

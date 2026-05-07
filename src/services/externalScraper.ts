@@ -89,8 +89,8 @@ export async function scrapeAndUpdateExternalMenu(userId: string, jobId?: string
             const displayDishName = variants[0].name.replace(/\(.*\)|\[.*\]|\d+\s*ml|\d+\s*lit/gi, "").trim();
             
             try {
-                // 🧠 Scrape ONCE for the base dish
-                const record = await scrapeAndSaveFood(displayDishName, userId);
+                // 🧠 Scrape with FORCE to ensure we pick up the new typo fixes and retry failed ones
+                const record = await scrapeAndSaveFood(displayDishName, userId, true);
 
                 if (record && record.cloudinaryUrl) {
                     // ✅ Apply the same image to ALL variants (Full, Half, etc.)

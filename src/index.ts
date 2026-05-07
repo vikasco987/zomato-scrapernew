@@ -26,6 +26,11 @@ export async function scrapeAndSaveFood(foodName: string, userId: string | null 
   }
 
   // 3. Multi-Candidate Search + Multi-Candidate Try
+  if (force) {
+    await prisma.foodImage.update({ where: { id: record.id }, data: { retryCount: 0, status: "pending" } });
+    record.retryCount = 0;
+  }
+
   let attempts = record.retryCount;
   
   while (attempts < MAX_RETRIES) {
