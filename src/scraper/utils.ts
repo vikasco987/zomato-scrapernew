@@ -28,9 +28,15 @@ export const cleanDishName = (name: string) => {
         .replace(/\bchees\b/g, 'cheese')
         .replace(/\bcold coffee\b/g, 'iced coffee')
         .replace(/\bveg\.\b/g, 'veg')
-        .replace(/\bnon-veg\b/g, 'non veg');
+        .replace(/\bnon-veg\b/g, 'non veg')
+        .replace(/\bchilly\b/g, 'chilli')
+        .replace(/\bmutter\b/g, 'matar')
+        .replace(/\bfry\b/g, 'fries');
 
-    // 2. Preserve sizes like 500ml, 1L, 250ml but remove generic text in parens
+    // 2. Remove trailing punctuation often found in menus (like trailing parens or dots)
+    cleaned = cleaned.replace(/[.)\]\s]+$/, '').trim();
+
+    // 3. Preserve sizes like 500ml, 1L, 250ml but remove generic text in parens
     const hasSize = /\d+\s*(ml|l|ltr|kg|gm|pcs)/i.test(cleaned);
     
     if (!hasSize) {
@@ -40,7 +46,7 @@ export const cleanDishName = (name: string) => {
         cleaned = cleaned.replace(/[()\[\]]/g, ' ');
     }
 
-    // 3. 🏆 ADVANCED VARIANT CLEANING (H/F/R, Half/Full, etc.)
+    // 4. 🏆 ADVANCED VARIANT CLEANING (H/F/R, Half/Full, etc.)
     cleaned = cleaned.replace(/[-/]\s*[HFhfrR]\b|\b(half|full|quarter|small|large|medium|regular)\b/gi, "");
 
     return cleaned

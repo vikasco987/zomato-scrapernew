@@ -94,11 +94,16 @@ export async function scrapeAndUpdateExternalMenu(userId: string, jobId?: string
 
                 if (record && record.cloudinaryUrl) {
                     // ✅ Apply the same image to ALL variants (Full, Half, etc.)
-                    await Promise.all(variants.map(v => 
-                        axios.patch(`${EXTERNAL_BASE}/menu/update/${v.id}`, { 
-                            imageUrl: record.cloudinaryUrl 
-                        }, { headers, timeout: 5000 }).catch(e => console.error(`⚠️ Update Failed for variant ${v.id}`))
-                    ));
+                    await Promise.all(variants.map(async (v) => {
+                        try {
+                            const res = await axios.patch(`${EXTERNAL_BASE}/menu/update/${v.id}`, { 
+                                imageUrl: record.cloudinaryUrl 
+                            }, { headers, timeout: 10000 });
+                            console.log(`✅ [Bridge] Update Success: ${v.name} -> ${record.cloudinaryUrl}`);
+                        } catch (e: any) {
+                            console.error(`⚠️ [Bridge] Update Failed for variant ${v.name} (${v.id}): ${e.message}`);
+                        }
+                    }));
                     successCount += variants.length;
                 }
             } catch (err: any) {
