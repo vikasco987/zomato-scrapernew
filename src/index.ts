@@ -10,7 +10,7 @@ const MAX_RETRIES = 2;
  * 🎯 THE ULTIMATE AI PRODUCTION ORCHESTRATOR
  * MULTI-CANDIDATE -> SCORING -> BEST PICK -> DIRECT CLOUD
  */
-export async function scrapeAndSaveFood(foodName: string, userId: string | null = null, force: boolean = false, menuItemId: string | null = null) {
+export async function scrapeAndSaveFood(foodName: string, userId: string | null = null, force: boolean = false, menuItemId: string | null = null, categoryName: string | null = null) {
   console.log(`\n🚀 AI PIPELINE: [${foodName}] (User: ${userId || 'Global'})${force ? " (FORCE RE-SCRAPE)" : ""}`);
 
   // 1. Pro Duplicate / Preparation Check
@@ -36,13 +36,13 @@ export async function scrapeAndSaveFood(foodName: string, userId: string | null 
   while (attempts < MAX_RETRIES) {
     record = await prisma.foodImage.update({ where: { id: record.id }, data: { retryCount: attempts + 1 } });
     
-    const result = await scrapeFoodImages(foodName);
+    const result = await scrapeFoodImages(foodName, categoryName);
     
     if (result.success && result.candidates.length > 0) {
       // 🧠 AI SCORING (Sort by confidence)
       const { scoreImage } = await import("./lib/scoring.js");
       const rankedItems = result.candidates
-        .map(c => ({ ...c, score: scoreImage(c, foodName) }))
+        .map(c => ({ ...c, score: scoreImage(c, foodName, categoryName) }))
         .sort((a, b) => b.score - a.score);
 
       for (const item of rankedItems) {

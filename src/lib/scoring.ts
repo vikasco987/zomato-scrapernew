@@ -4,7 +4,7 @@ import { cleanDishName } from "../scraper/utils.js";
  * 🧠 AI SCORING LOGIC
  * Evaluates image candidates based on production heuristics.
  */
-export function scoreImage(img: { url: string; width?: number; height?: number }, dishName: string) {
+export function scoreImage(img: { url: string; width?: number; height?: number }, dishName: string, categoryName: string | null = null) {
   let score = 0;
   const url = img.url.toLowerCase();
   
@@ -35,18 +35,31 @@ export function scoreImage(img: { url: string; width?: number; height?: number }
     score -= 25;
   }
 
+  // 5. Category Context Reward (+15 for strong category match)
+  if (categoryName) {
+      const catKeywords = categoryName.toLowerCase().split(/\s+/).filter(k => k.length > 3);
+      if (catKeywords.some(k => url.includes(k))) {
+          score += 15;
+      }
+      
+      // Special Pizza Handling
+      if (categoryName.toLowerCase().includes('pizza') && !url.includes('pizza')) {
+          score -= 30; // HEAVY PENALTY if category is Pizza but URL doesn't mention it
+      }
+  }
+
   return score;
 }
 
 /**
  * 🥇 BEST PICKER
  */
-export function pickBestImage(images: { url: string; width?: number; height?: number }[], dishName: string) {
+export function pickBestImage(images: { url: string; width?: number; height?: number }[], dishName: string, categoryName: string | null = null) {
   let best = null;
   let bestScore = -100; // Start low to allow for negative vetting
 
   for (const img of images) {
-    const score = scoreImage(img, dishName);
+    const score = scoreImage(img, dishName, categoryName);
     if (score > bestScore) {
       bestScore = score;
       best = img;

@@ -77,7 +77,7 @@ interface ScrapeResult {
  * 🛠️ PRODUCTION SCRAPER (TRIPLE FALLBACK: DDG -> BING -> GOOGLE)
  * 🚀 PERFORMANCE BOOST: Reuses shared browser instance.
  */
-export async function scrapeFoodImages(foodName: string): Promise<ScrapeResult> {
+export async function scrapeFoodImages(foodName: string, categoryName: string | null = null): Promise<ScrapeResult> {
   let page: any = null;
 
   try {
@@ -93,12 +93,19 @@ export async function scrapeFoodImages(foodName: string): Promise<ScrapeResult> 
     const beverageKeywords = ['tea', 'coffee', 'chai', 'pepsi', 'coke', 'coca-cola', 'cola', 'drink', 'juice', 'shake', 'lassi', 'mocktail', 'cocktail', 'cold drink', 'soda', 'water', 'limca', 'sprite', 'fanta', 'dew', 'thumbs up'];
     const isBeverage = beverageKeywords.some(k => cleanName.toLowerCase().includes(k));
     
+    const isPizza = (categoryName?.toLowerCase().includes('pizza')) || (cleanName.toLowerCase().includes('pizza'));
+    
     // 4. Reject Non-Food Noise (-25 for UI/Stock elements - INCREASED PENALTY)
     const noiseKeywords = ["logo", "icon", "banner", "placeholder", "default", "avatar", "stock", "alamy", "shutterstock", "dreamstime", "watermark", "text", "price", "label"];
     
-    const searchTerms = isBeverage 
+    let searchTerms = isBeverage 
         ? `${cleanName} drink glass`
         : `${cleanName} dish food`;
+
+    if (isPizza) {
+        // Force the word "pizza" and "italian" to avoid getting generic curry images for "Karahi Paneer Pizza"
+        searchTerms = `${cleanName} italian pizza food`;
+    }
         
     const query = encodeURIComponent(searchTerms);
 
