@@ -15,6 +15,37 @@ export const USER_AGENTS = [
 export const getRandomUserAgent = () =>
   USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
 
+const HINDI_TO_ENGLISH_MAP: Record<string, string> = {
+    "मटर पनीर": "matar paneer",
+    "चीज़ चिली": "chilli paneer",
+    "कढ़ी": "kadhi pakora",
+    "कढ़ी चावल": "kadhi chawal",
+    "छोले चावल": "chole chawal",
+    "राजमा चावल": "rajma chawal",
+    "मैगी": "maggi noodles",
+    "दाल तड़का": "dal tadka",
+    "दाल मखनी": "dal makhani",
+    "जीरा आलू": "jeera aloo",
+    "ग्रेवी चाप": "gravy chaap",
+    "चिली चाप": "chilli chaap",
+    "शाही पनीर": "shahi paneer",
+    "कढ़ाई पनीर": "kadai paneer",
+    "पनीर मसाला टिक्का": "paneer tikka masala",
+    "पनीर भुर्जी": "paneer bhurji",
+    "चाय": "masala chai",
+    "कॉफ़ी": "coffee",
+    "लस्सी": "lassi",
+    "तवा रोटी": "tawa roti",
+    "बटर तवा रोटी": "butter tawa roti",
+    "तंदूरी बटर रोटी": "tandoori butter roti",
+    "सादा पराठा": "plain paratha",
+    "लच्छा पराठा": "lachha paratha",
+    "मिक्स स्टफ पराठा": "mix stuffed paratha",
+    "रोटी": "roti",
+    "नान": "naan",
+    "पनीर": "paneer"
+};
+
 /**
  * 🧹 CLEAN DISH NAME for SEARCH
  * Removes (full), (half), [V], etc to get pure food terms.
@@ -49,8 +80,18 @@ export const cleanDishName = (name: string) => {
     // 4. 🏆 ADVANCED VARIANT CLEANING (H/F/R, Half/Full, etc.)
     cleaned = cleaned.replace(/[-/]\s*[HFhfrR]\b|\b(half|full|quarter|small|large|medium|regular)\b/gi, "");
 
+    // 5. Devanagari translation mapper
+    const hasHindi = /[\u0900-\u097F]/.test(cleaned);
+    if (hasHindi) {
+        for (const [hindi, english] of Object.entries(HINDI_TO_ENGLISH_MAP)) {
+            if (cleaned.includes(hindi)) {
+                cleaned = cleaned.replace(new RegExp(hindi, 'g'), english);
+            }
+        }
+    }
+
     return cleaned
-        .replace(/[^a-zA-Z0-9\s]/g, ' ')
+        .replace(/[^a-zA-Z0-9\s\u0900-\u097F]/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
 };

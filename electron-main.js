@@ -22,7 +22,7 @@ function startServer() {
     console.log(`[Main]: Starting server at ${serverPath}`);
 
     serverProcess = fork(serverPath, [], {
-        env: { ...process.env, PORT: 3000, NODE_ENV: isDev ? 'development' : 'production' },
+        env: { ...process.env, PORT: 3005, NODE_ENV: isDev ? 'development' : 'production' },
         stdio: 'inherit' // Pipe stdout/stderr to the main process terminal
     });
 
@@ -50,9 +50,11 @@ function createWindow() {
         icon: path.join(__dirname, 'public', 'favicon.ico') 
     });
 
+    mainWindow.webContents.session.clearCache();
+
     // 🕒 Wait for the server (3 seconds usually enough, but retry if needed)
     const loadUrl = () => {
-        mainWindow.loadURL('http://localhost:3000').catch(() => {
+        mainWindow.loadURL('http://localhost:3005').catch(() => {
             console.log('[Main]: Server not ready, retrying...');
             setTimeout(loadUrl, 1000);
         });

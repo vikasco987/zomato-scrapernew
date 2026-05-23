@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Kravy AI | Admin Control Center</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root { 
@@ -171,6 +172,8 @@
                 <button onclick="switchTab('import')" id="tab-import" class="nav-tab">🚜 IMPORT</button>
                 <button onclick="switchTab('shadow')" id="tab-shadow" class="nav-tab">🕵️ SHADOW</button>
                 <button onclick="switchTab('history')" id="tab-history" class="nav-tab">🌊 JOBS</button>
+                <button onclick="switchTab('menu-ocr')" id="tab-menu-ocr" class="nav-tab text-purple-400 font-black">📋 MENU OCR</button>
+                <button onclick="switchTab('onboard')" id="tab-onboard" class="nav-tab text-sky-400 font-black">💼 MERCHANT ONBOARD</button>
                 <a href="/lead-scraper.html" class="nav-tab text-yellow-400 font-black">📞 LEADS</a>
             </nav>
         </header>
@@ -393,16 +396,306 @@
                 </button>
                 
                 <div class="glass-card p-12 bg-gradient-to-br from-white/[0.04] to-transparent flex flex-col lg:flex-row justify-between items-center gap-10">
-                    <div>
-                        <h3 class="text-6xl font-black tracking-tighter" id="selectedRestoName">Menu Hub</h3>
-                        <div class="flex items-center gap-3 mt-6">
-                            <span class="px-3 py-1 bg-orange-500 text-black text-[9px] font-black rounded-full uppercase tracking-widest" id="selectedRestoId">UID: ---</span>
-                            <span class="px-3 py-1 bg-white/5 border border-white/10 text-[9px] font-black rounded-full uppercase tracking-widest">LIVE SYNC READY</span>
+                    <div class="flex flex-col sm:flex-row items-center gap-8 w-full lg:w-auto">
+                        <!-- Profile Logo Upload Dropzone -->
+                        <div class="relative group select-none flex-shrink-0" style="width: 110px; height: 110px;">
+                            <div id="logoDropZone" class="w-full h-full rounded-3xl border-2 border-dashed border-white/10 group-hover:border-orange-500/40 bg-white/[0.02] group-hover:bg-white/[0.04] transition-all duration-300 flex flex-col justify-center items-center overflow-hidden cursor-pointer relative shadow-lg"
+                                 onclick="triggerLogoSelect(event)"
+                                 ondragover="handleLogoDragOver(event)"
+                                 ondragleave="handleLogoDragLeave(event)"
+                                 ondrop="handleLogoDrop(event)">
+                                
+                                <!-- No image state placeholder -->
+                                <div id="logoEmptyState" class="flex flex-col items-center justify-center text-center p-2">
+                                    <span class="text-3xl text-white/20 group-hover:scale-110 transition-transform duration-300">🖼️</span>
+                                    <span class="text-[8px] font-black tracking-widest text-white/30 uppercase mt-1">DROP LOGO</span>
+                                </div>
+                                
+                                <!-- Logo preview element -->
+                                <img id="logoPreviewImage" class="hidden w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" src="" alt="Resto Logo" />
+                                
+                                <!-- Hover update overlay -->
+                                <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center text-center p-2 pointer-events-none">
+                                    <span class="text-xl">📤</span>
+                                    <span class="text-[8px] font-black tracking-wider text-orange-500 uppercase mt-1">UPDATE</span>
+                                </div>
+                                
+                                <!-- Active uploading spinner -->
+                                <div id="logoUploadingSpinner" class="hidden absolute inset-0 bg-black/80 flex flex-col items-center justify-center text-center p-2">
+                                    <div class="animate-spin rounded-full h-6 w-6 border-2 border-t-orange-500 border-r-transparent border-b-transparent border-l-transparent"></div>
+                                    <span class="text-[7px] font-black tracking-widest text-orange-500 uppercase mt-2">UPLOADING...</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Hidden input trigger -->
+                            <input type="file" id="logoFileInput" accept="image/*" class="hidden" onchange="handleLogoFileSelected(event)" />
+                            
+                            <!-- Floating absolute delete button -->
+                            <button id="logoDeleteBtn" onclick="deleteLogo(event)" class="hidden absolute -top-2 -right-2 bg-rose-600 hover:bg-rose-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-[10px] font-black border border-white/10 shadow-lg hover:scale-110 transition-all focus:outline-none" title="Delete Logo">
+                                🗑️
+                            </button>
+                        </div>
+
+                        <div class="text-center sm:text-left">
+                            <h3 class="text-6xl font-black tracking-tighter" id="selectedRestoName">Menu Hub</h3>
+                            <div class="flex flex-wrap items-center justify-center sm:justify-start gap-3 mt-6">
+                                <span class="px-3 py-1 bg-orange-500 text-black text-[9px] font-black rounded-full uppercase tracking-widest" id="selectedRestoId">UID: ---</span>
+                                <span class="px-3 py-1 bg-white/5 border border-white/10 text-[9px] font-black rounded-full uppercase tracking-widest">LIVE SYNC READY</span>
+                            </div>
                         </div>
                     </div>
-                    <div class="flex items-center gap-4 w-full lg:w-auto">
-                        <button onclick="openPreview()" class="flex-1 lg:flex-none px-10 py-6 bg-white border border-white rounded-3xl text-black font-black text-xs uppercase tracking-widest hover:scale-105 transition-all shadow-xl"> 👁️ VIEW PREVIEW </button>
-                        <button onclick="triggerAllScrape()" id="scrapeAllBtn" class="flex-1 lg:flex-none btn-primary px-12 py-6 rounded-3xl text-xs uppercase transition-all"> 🚀 SYNC ENTIRE MENU </button>
+
+                    <div class="flex items-center gap-3 w-full lg:w-auto flex-wrap justify-end">
+                        <button onclick="openPreview()" class="flex-1 lg:flex-none px-8 py-5 bg-white border border-white rounded-3xl text-black font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-all shadow-xl"> 👁️ VIEW PREVIEW </button>
+                        <button onclick="toggleBridgeAiProfile()" id="aiProfileBtn" ondragover="handleAiProfileDragOver(event)" ondragleave="handleAiProfileDragLeave(event)" ondrop="handleAiProfileDrop(event)" class="flex-1 lg:flex-none px-8 py-5 bg-purple-500/10 border border-purple-500/20 text-purple-400 rounded-3xl text-[10px] font-black uppercase tracking-widest hover:bg-purple-500 hover:text-black transition-all"> 🪄 AI PROFILE AUTO-FILL </button>
+                        <input type="file" id="aiProfileFileInput" accept="image/*" class="hidden" onchange="handleAiProfileFileSelected(event)" />
+                        <button onclick="toggleBridgeOcr()" id="toggleOcrBtn" class="flex-1 lg:flex-none px-8 py-5 bg-orange-500/10 border border-orange-500/20 text-orange-500 rounded-3xl text-[10px] font-black uppercase tracking-widest hover:bg-orange-500 hover:text-black transition-all"> 📥 UPLOAD NEW MENU </button>
+                        <button onclick="toggleBridgeBills()" id="toggleBillsBtn" class="flex-1 lg:flex-none px-8 py-5 bg-orange-500/10 border border-orange-500/20 text-orange-500 rounded-3xl text-[10px] font-black uppercase tracking-widest hover:bg-orange-500 hover:text-black transition-all"> 📋 VIEW BILLS </button>
+                        <button onclick="triggerAllScrape()" id="scrapeAllBtn" class="flex-1 lg:flex-none btn-primary px-10 py-5 rounded-3xl text-[10px] uppercase transition-all"> 🚀 SYNC ENTIRE MENU </button>
+                        <button onclick="clearRestaurantMenu()" class="flex-1 lg:flex-none px-8 py-5 bg-red-500/10 border border-red-500/20 text-red-500 rounded-3xl text-[10px] font-black uppercase tracking-widest hover:bg-red-500 hover:text-black transition-all"> 🧹 WIPE MENU </button>
+                    </div>
+                </div>
+                
+                <!-- 📥 BRIDGE AI OCR CONTAINER (SAFE RESET & UPDATE MENU FLOW) -->
+                <div id="bridgeOcrContainer" class="hidden glass-card rounded-[40px] p-12 bg-white/[0.02] border-white/5 space-y-8 mb-12 animate-in slide-in-from-top-10 duration-300">
+                    <div class="flex justify-between items-center border-b border-white/5 pb-6">
+                        <div>
+                            <h4 class="text-3xl font-black text-orange-500 tracking-tight">📥 RE-SYNC & UPLOAD NEW MENU (AI OCR)</h4>
+                            <p class="text-[10px] text-white/40 mt-1">Upload a new menu image/PDF to overwrite and scrape correct images for this restaurant.</p>
+                        </div>
+                        <button onclick="toggleBridgeOcr(false)" class="px-5 py-3 bg-white/5 border border-white/10 rounded-2xl text-[9px] font-black uppercase tracking-widest text-white/50 hover:bg-white/10 hover:text-white transition-all">CLOSE ✕</button>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <!-- Dropzone for Menu Upload -->
+                        <div class="lg:col-span-2 relative group glass-card p-10 bg-white/[0.02] border-white/5 rounded-3xl transition-all duration-500 hover:border-orange-500/30 flex flex-col justify-center items-center min-h-[250px] border-2 border-dashed border-white/10 cursor-pointer"
+                             onclick="handleBridgeDropZoneClick(event)"
+                             ondragover="handleBridgeDragOver(event)"
+                             ondragleave="handleBridgeDragLeave(event)"
+                             ondrop="handleBridgeDrop(event)">
+                            <input type="file" id="bridgeFileInput" accept="image/*,application/pdf" class="hidden" onchange="handleBridgeFileSelected(event)" multiple />
+                            
+                            <div class="text-center space-y-3 pointer-events-none" id="bridgeUploadPrompt">
+                                <span class="text-5xl filter drop-shadow-[0_0_15px_rgba(249,115,22,0.4)]">📥</span>
+                                <p class="text-xs font-black uppercase tracking-widest text-white/80">Drop menu images or PDF here</p>
+                                <p class="text-[9px] text-dim tracking-wider">or click to browse from system (automatic Gemini AI OCR processing)</p>
+                            </div>
+                            
+                            <div class="hidden w-full space-y-5" id="bridgeFilesSelectedState" onclick="event.stopPropagation()">
+                                <div class="flex justify-between items-center">
+                                    <span id="bridgePendingCount" class="text-[10px] font-bold text-white/50">0 files selected</span>
+                                    <div class="flex gap-3">
+                                        <button onclick="triggerBridgeFileSelect(event)" class="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-[9px] font-black uppercase tracking-wider transition-all text-white/80">Add Files</button>
+                                        <button onclick="startBridgeExtraction(event)" class="px-6 py-3 bg-gradient-to-r from-orange-500 to-amber-600 hover:from-orange-400 hover:to-amber-500 font-black uppercase tracking-widest text-[10px] text-black rounded-2xl shadow-xl transition-all hover:scale-105 active:scale-95 flex items-center gap-2">⚡ RUN AI OCR</button>
+                                    </div>
+                                </div>
+                                <div id="bridgePendingList" class="flex flex-wrap justify-center gap-3 max-h-[160px] overflow-y-auto no-scrollbar py-1"></div>
+                            </div>
+                            
+                            <div class="hidden text-center space-y-3" id="bridgeUploadLoading">
+                                <span class="inline-block animate-spin text-4xl text-orange-500">🌀</span>
+                                <p class="text-xs text-white/80 font-black tracking-widest" id="bridgeProgressStatus">Extracting menu details...</p>
+                            </div>
+                        </div>
+
+                        <!-- Logs box -->
+                        <div class="glass-card rounded-3xl p-6 bg-black/60 border-white/5 flex flex-col min-h-[250px] justify-between">
+                            <div class="flex justify-between items-center border-b border-white/5 pb-4 mb-4">
+                                <h5 class="text-[10px] font-black uppercase tracking-[0.3em] opacity-40 text-orange-500">AI Logs Terminal</h5>
+                                <button onclick="document.getElementById('bridgeLogsList').innerHTML=''" class="text-[9px] font-bold text-white/30 hover:text-white transition-colors">CLEAR</button>
+                            </div>
+                            <div id="bridgeLogsList" class="font-mono text-[10px] space-y-2 max-h-[180px] overflow-y-auto no-scrollbar flex-1">
+                                <div class="text-white/30 italic">Ready. Upload menu to start re-syncing.</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 🪄 BRIDGE AI PROFILE AUTO-FILL CONTAINER -->
+                    <div id="bridgeAiProfileContainer" class="hidden glass-card rounded-[40px] p-12 bg-white/[0.02] border-white/5 space-y-8 mb-12 animate-in slide-in-from-top-10 duration-300 border-purple-500/20">
+                        <div class="flex justify-between items-center border-b border-white/5 pb-6">
+                            <div>
+                                <h4 class="text-3xl font-black text-purple-400 tracking-tight">🪄 AI PROFILE AUTO-FILL & CREATION</h4>
+                                <p class="text-[10px] text-white/40 mt-1">Upload or drop a restaurant photo, maps screenshot, business card, or banner. Gemini AI will instantly extract details and update the POS database.</p>
+                            </div>
+                            <button onclick="toggleBridgeAiProfile(false)" class="px-5 py-3 bg-white/5 border border-white/10 rounded-2xl text-[9px] font-black uppercase tracking-widest text-purple-400/75 hover:bg-white/10 hover:text-purple-400 transition-all">CLOSE ✕</button>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                            <!-- Dropzone for Profile Upload -->
+                            <div id="bridgeAiProfileDropZone" class="lg:col-span-2 relative group glass-card p-10 bg-white/[0.02] border-white/5 rounded-3xl transition-all duration-500 hover:border-purple-500/30 flex flex-col justify-center items-center min-h-[250px] border-2 border-dashed border-white/10 cursor-pointer"
+                                 onclick="handleBridgeAiProfileDropZoneClick(event)"
+                                 ondragover="handleBridgeAiProfileDragOver(event)"
+                                 ondragleave="handleBridgeAiProfileDragLeave(event)"
+                                 ondrop="handleBridgeAiProfileDrop(event)">
+                                <input type="file" id="bridgeAiProfileFileInput" accept="image/*" class="hidden" onchange="handleBridgeAiProfileFileSelected(event)" />
+                                
+                                <!-- Prompt State (Shown initially) -->
+                                <div class="text-center space-y-3 pointer-events-none" id="bridgeAiProfileUploadPrompt">
+                                    <span class="text-5xl filter drop-shadow-[0_0_15px_rgba(168,85,247,0.4)] animate-pulse">🔮</span>
+                                    <p class="text-xs font-black uppercase tracking-widest text-white/80">Drop Restaurant Card / Photo Here</p>
+                                    <p class="text-[9px] text-dim tracking-wider">or click to browse from system (automatic Gemini Multimodal AI processing)</p>
+                                </div>
+                                
+                                <!-- Loading State (Shown during processing) -->
+                                <div class="hidden text-center space-y-4" id="bridgeAiProfileUploadingState">
+                                    <div class="flex justify-center"><div class="spinner !w-12 !h-12 border-[3px] !border-t-purple-500"></div></div>
+                                    <h4 class="text-lg font-bold tracking-tight text-purple-400 animate-pulse">Running Multimodal Gemini-2.0 OCR...</h4>
+                                    <p class="text-xs text-dim" id="bridgeAiProfileProgressStatus">Extracting business profile and uploading to Cloudinary...</p>
+                                </div>
+
+                                <!-- Success State (Shown after parsing) -->
+                                <div class="hidden w-full grid grid-cols-1 md:grid-cols-3 gap-6 text-left" id="bridgeAiProfileSuccessState" onclick="event.stopPropagation()">
+                                    <!-- Thumbnail column -->
+                                    <div class="relative rounded-2xl overflow-hidden border border-white/10 aspect-video md:aspect-square bg-white/[0.02] flex items-center justify-center">
+                                        <img id="bridgeAiProfileSuccessImg" class="w-full h-full object-cover" src="" alt="Parsed Resto Visual" />
+                                        <div class="absolute bottom-2 left-2 bg-black/60 backdrop-blur-md px-2 py-1 rounded-md text-[8px] font-black tracking-widest text-purple-400 uppercase">CLOUDINARY IMAGE</div>
+                                    </div>
+                                    <!-- Credentials column -->
+                                    <div class="md:col-span-2 space-y-4 flex flex-col justify-center">
+                                        <div class="border-b border-white/5 pb-2">
+                                            <h5 class="text-xs font-black text-purple-400 uppercase tracking-widest">🎉 EXTRACTION SUCCESS!</h5>
+                                            <p class="text-[9px] text-white/40">Synchronized directly to POS MongoDB</p>
+                                        </div>
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div class="space-y-1">
+                                                <span class="text-[8px] font-black uppercase tracking-wider text-dim">Restaurant Name</span>
+                                                <p class="text-xs font-bold text-white" id="successResName">---</p>
+                                            </div>
+                                            <div class="space-y-1">
+                                                <span class="text-[8px] font-black uppercase tracking-wider text-dim">Phone / Contact</span>
+                                                <p class="text-xs font-bold text-white" id="successResPhone">---</p>
+                                            </div>
+                                            <div class="space-y-1">
+                                                <span class="text-[8px] font-black uppercase tracking-wider text-dim">Opening Timings</span>
+                                                <p class="text-xs font-bold text-white" id="successResTimings">---</p>
+                                            </div>
+                                            <div class="space-y-1 col-span-1 md:col-span-2">
+                                                <span class="text-[8px] font-black uppercase tracking-wider text-dim">Business Address</span>
+                                                <p class="text-xs font-bold text-white/90 leading-relaxed" id="successResAddress">---</p>
+                                            </div>
+                                        </div>
+                                        <div class="pt-2 border-t border-white/5 flex gap-3">
+                                            <button onclick="resetAiProfilePanelState(event)" class="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[9px] font-black uppercase tracking-widest text-white/60 hover:text-white transition-all">🪄 UPLOAD ANOTHER</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Logs box -->
+                            <div class="glass-card rounded-3xl p-6 bg-black/60 border-white/5 flex flex-col min-h-[250px] justify-between">
+                                <div class="flex justify-between items-center border-b border-white/5 pb-4 mb-4">
+                                    <h5 class="text-[10px] font-black uppercase tracking-[0.3em] opacity-40 text-purple-400">AI Status Terminal</h5>
+                                    <button onclick="document.getElementById('bridgeAiProfileLogs').innerHTML=''" class="text-[9px] font-bold text-white/30 hover:text-white transition-colors">CLEAR</button>
+                                </div>
+                                <div id="bridgeAiProfileLogs" class="font-mono text-[10px] space-y-2 max-h-[180px] overflow-y-auto no-scrollbar flex-1">
+                                    <div class="text-white/30 italic">Ready. Drop an image of restaurant details to begin.</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Table to review extracted items before deploying -->
+                    <div id="bridgeTableContainer" class="hidden glass-card rounded-3xl p-8 bg-white/[0.02] border-white/5 space-y-6">
+                        <div class="glass-card rounded-2xl p-6 bg-gradient-to-r from-orange-500/10 to-amber-500/10 border border-orange-500/20 flex flex-col md:flex-row justify-between items-center gap-6">
+                            <div>
+                                <h4 class="text-2xl font-black tracking-tight text-white">Review Extracted Menu</h4>
+                                <p class="text-[10px] text-white/50 mt-1">Review, edit names, prices, types, or categories before pushing directly to the billing system.</p>
+                            </div>
+                            <div class="flex items-center gap-4">
+                                <span id="bridgeCountBadge" class="px-4 py-2 bg-orange-500/10 text-orange-500 border border-orange-500/20 text-[10px] font-black uppercase tracking-wider rounded-xl">0 Items Extracted</span>
+                                <button onclick="deployBridgeMenu()" class="px-8 py-5 bg-orange-500 hover:bg-orange-400 font-black uppercase tracking-widest text-[10px] text-black rounded-2xl shadow-[0_0_30px_rgba(249,115,22,0.3)] transition-all hover:scale-105 active:scale-95">💾 DEPLOY & SYNC TO SOFTWARE</button>
+                            </div>
+                        </div>
+                        
+                        <div class="overflow-x-auto rounded-3xl border border-white/5 bg-black/40">
+                            <table class="w-full text-left border-collapse">
+                                <thead>
+                                    <tr class="border-b border-white/5 text-[10px] font-black uppercase tracking-widest text-orange-500/60 bg-white/[0.01]">
+                                        <th class="px-6 py-5">Category</th>
+                                        <th class="px-6 py-5">Dish Name</th>
+                                        <th class="px-6 py-5">Price (₹)</th>
+                                        <th class="px-6 py-5">Type</th>
+                                        <th class="px-6 py-5">Description</th>
+                                        <th class="px-6 py-5 text-center">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="bridgeTableBody" class="divide-y divide-white/5 font-medium text-xs text-white/80"></tbody>
+                            </table>
+                        </div>
+                        
+                        <div class="flex justify-between items-center">
+                            <button onclick="addBridgeRow()" class="px-5 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest text-orange-500 transition-all">➕ ADD ITEM MANUALLY</button>
+                        </div>
+                    </div> <!-- Close bridgeTableContainer -->
+                </div> <!-- Close bridgeOcrContainer -->
+                
+                <!-- 📋 BRIDGE BILLS CONTAINER -->
+                <div id="bridgeBillsContainer" class="hidden glass-card rounded-[40px] p-12 bg-white/[0.02] border-white/5 space-y-8 mb-12 animate-in slide-in-from-top-10 duration-300">
+                    <div class="flex justify-between items-center border-b border-white/5 pb-6">
+                        <div>
+                            <h4 class="text-3xl font-black text-orange-500 tracking-tight">📋 BILLS & TRANSACTIONS HISTORY</h4>
+                            <p class="text-[10px] text-white/40 mt-1">View, track, and clear bills or orders for this restaurant instantly.</p>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <button onclick="clearRestaurantBills()" class="px-5 py-3 bg-red-500/10 border border-red-500/20 rounded-2xl text-[9px] font-black uppercase tracking-widest text-red-500 hover:bg-red-500 hover:text-black transition-all">🗑️ CLEAR ALL BILLS</button>
+                            <button onclick="toggleBridgeBills(false)" class="px-5 py-3 bg-white/5 border border-white/10 rounded-2xl text-[9px] font-black uppercase tracking-widest text-white/50 hover:bg-white/10 hover:text-white transition-all">CLOSE ✕</button>
+                        </div>
+                    </div>
+
+                    <!-- Financial Summary Cards -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="glass-card p-6 bg-white/[0.01] border-white/5 rounded-2xl">
+                            <p class="text-[9px] font-black text-dim tracking-widest uppercase">Total Orders/Bills</p>
+                            <h5 class="text-3xl font-black mt-2 text-white" id="bills-total-count">0</h5>
+                        </div>
+                        <div class="glass-card p-6 bg-white/[0.01] border-white/5 rounded-2xl">
+                            <p class="text-[9px] font-black text-dim tracking-widest uppercase">Total Revenue</p>
+                            <h5 class="text-3xl font-black mt-2 text-orange-500" id="bills-total-revenue">₹0.00</h5>
+                        </div>
+                        <div class="glass-card p-6 bg-white/[0.01] border-white/5 rounded-2xl">
+                            <p class="text-[9px] font-black text-dim tracking-widest uppercase">Payment Modes Summary</p>
+                            <div class="text-[10px] font-bold text-white/70 space-y-1 mt-2" id="bills-payments-breakdown">
+                                <span class="text-white/30 italic">No payments recorded</span>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- 🛠️ LIVE DIAGNOSTIC & CONNECTION LOGS -->
+                    <div class="glass-card p-6 bg-black/40 border border-white/5 rounded-3xl space-y-3">
+                        <div class="flex justify-between items-center border-b border-white/5 pb-2">
+                            <div class="flex items-center gap-2">
+                                <span class="relative flex h-2 w-2">
+                                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                    <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                </span>
+                                <h6 class="text-[10px] font-black tracking-widest text-orange-500 uppercase">⚡ LIVE DIAGNOSTIC CONSOLE (SOCKET.IO)</h6>
+                            </div>
+                            <button onclick="clearDiagnosticLogs()" class="text-[9px] font-black text-white/40 hover:text-white uppercase tracking-widest transition-all">🧹 Clear Console</button>
+                        </div>
+                        <div id="bridgeDiagnosticLogs" class="font-mono text-[10px] space-y-1.5 p-4 bg-black/60 rounded-2xl border border-white/5 max-h-[160px] overflow-y-auto select-text">
+                            <div class="text-white/30 italic">Diagnostic stream active. Select a restaurant and click "View Bills" to view connection logs...</div>
+                        </div>
+                    </div>
+
+                    <!-- Bills Table -->
+                    <div class="overflow-x-auto rounded-3xl border border-white/5 bg-black/40 max-h-[400px] overflow-y-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="border-b border-white/5 text-[10px] font-black uppercase tracking-widest text-orange-500/60 bg-white/[0.01]">
+                                    <th class="px-6 py-5">Bill No. / ID</th>
+                                    <th class="px-6 py-5">Date & Time</th>
+                                    <th class="px-6 py-5">Source / Table</th>
+                                    <th class="px-6 py-5">Customer</th>
+                                    <th class="px-6 py-5">Items</th>
+                                    <th class="px-6 py-5">Status</th>
+                                    <th class="px-6 py-5 text-right pr-10">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody id="bridgeBillsTableBody" class="divide-y divide-white/5 font-medium text-xs text-white/80">
+                                <tr>
+                                    <td colspan="7" class="px-6 py-10 text-center text-white/40 italic">Loading bills...</td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
                 
@@ -505,6 +798,316 @@
             </div>
             <div id="liveJobsList" class="space-y-8"></div>
         </main>
+
+        <!-- PAGE: Merchant Onboard -->
+        <main id="page-onboard" class="tab-content hidden space-y-12">
+            <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+                <div>
+                    <h2 class="text-4xl font-black tracking-tight shimmer-text">AI Merchant Onboarding</h2>
+                    <p class="text-xs text-dim mt-1">Directly register custom merchants, auto-extract their menus with Gemini 2.0 Flash, and sync everything verified into Kravy POS.</p>
+                </div>
+                <div class="flex items-center gap-4">
+                    <button onclick="clearOnboardForm()" class="px-5 py-3 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white/50 hover:bg-white/10 hover:text-white transition-all">
+                        🧹 RESET FORM
+                    </button>
+                </div>
+            </div>
+
+            <!-- Main Form Grid -->
+            <div class="grid grid-cols-1 xl:grid-cols-5 gap-8">
+                <!-- Left: Merchant & Restaurant Config (3 Columns) -->
+                <div class="xl:col-span-3 space-y-8">
+                    <!-- Section 1: Authentication -->
+                    <div class="glass-card rounded-3xl p-8 bg-white/[0.02] border-white/5 space-y-6">
+                        <div class="flex items-center gap-3 border-b border-white/5 pb-4">
+                            <span class="text-2xl">👤</span>
+                            <div>
+                                <h3 class="text-lg font-bold text-white/80">Merchant Credentials</h3>
+                                <p class="text-[10px] text-dim font-medium uppercase tracking-wider">Login Access details</p>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="space-y-2">
+                                <label class="text-[10px] font-black uppercase tracking-wider text-white/60">Email Address *</label>
+                                <input type="email" id="onboard-email" placeholder="e.g. delicious@kravy.in" class="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3.5 text-white text-xs focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500" />
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-[10px] font-black uppercase tracking-wider text-white/60">Phone Number *</label>
+                                <input type="text" id="onboard-phone" placeholder="e.g. 9876543210 (10 digits)" class="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3.5 text-white text-xs focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500" />
+                            </div>
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-black uppercase tracking-wider text-white/60">Password *</label>
+                            <div class="relative">
+                                <input type="password" id="onboard-password" value="Radha@987k" placeholder="At least 6 characters" class="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3.5 pr-16 text-white text-xs focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500" />
+                                <button type="button" id="toggle-password-btn" onclick="toggleOnboardPassword()" class="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 hover:text-white text-[10px] font-black uppercase tracking-widest transition-all">
+                                    SHOW
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section 2: Restaurant Details -->
+                    <div class="glass-card rounded-3xl p-8 bg-white/[0.02] border-white/5 space-y-6">
+                        <div class="flex items-center gap-3 border-b border-white/5 pb-4">
+                            <span class="text-2xl">🏢</span>
+                            <div>
+                                <h3 class="text-lg font-bold text-white/80">Restaurant Information</h3>
+                                <p class="text-[10px] text-dim font-medium uppercase tracking-wider">Business Profile Settings (Auto-extracted from Menu)</p>
+                            </div>
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-black uppercase tracking-wider text-white/60">Restaurant Name *</label>
+                            <input type="text" id="onboard-rest-name" placeholder="Extracts automatically or type here" class="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3.5 text-white text-xs focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500" />
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-black uppercase tracking-wider text-white/60">Business Address</label>
+                            <input type="text" id="onboard-rest-address" placeholder="Extracts automatically or type here" class="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3.5 text-white text-xs focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500" />
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="space-y-2">
+                                <label class="text-[10px] font-black uppercase tracking-wider text-white/60">Operating Timings</label>
+                                <input type="text" id="onboard-rest-timings" placeholder="e.g. 11:00 AM - 11:00 PM" class="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3.5 text-white text-xs focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500" />
+                            </div>
+                            <div class="space-y-2">
+                                <label class="text-[10px] font-black uppercase tracking-wider text-white/60">Contact Phone</label>
+                                <input type="text" id="onboard-rest-phone" placeholder="Contact number" class="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3.5 text-white text-xs focus:border-sky-500 focus:outline-none focus:ring-1 focus:ring-sky-500" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Menu Upload & Pipeline logs (2 Columns) -->
+                <div class="xl:col-span-2 space-y-8">
+                    <!-- Upload Box -->
+                    <div id="onboardDropZone" class="relative group glass-card p-8 bg-white/[0.02] border-white/5 rounded-3xl transition-all duration-500 hover:border-sky-500/30 flex flex-col justify-center items-center min-h-[220px] border-2 border-dashed border-white/10 cursor-pointer"
+                         onclick="handleDropZoneClick(event)"
+                         ondragover="handleOnboardDragOver(event)"
+                         ondragleave="handleOnboardDragLeave(event)"
+                         ondrop="handleOnboardDrop(event)">
+                        <input type="file" id="onboardFileInput" accept="image/*,application/pdf" class="hidden" onchange="handleOnboardFileSelected(event)" multiple />
+                        
+                        <!-- Prompt State (Shown when no files selected) -->
+                        <div class="text-center space-y-3 pointer-events-none" id="onboardUploadPrompt">
+                            <span class="text-5xl animate-bounce duration-1000 inline-block">📋</span>
+                            <h4 class="text-md font-bold tracking-tight text-white/80">Upload Menu to Auto-Fill</h4>
+                            <p class="text-[10px] text-dim">Drag & drop menu Images or PDFs, or click to browse</p>
+                        </div>
+
+                        <!-- Pending Files State (Shown when files are added) -->
+                        <div class="hidden w-full space-y-5" id="onboardFilesSelectedState" onclick="event.stopPropagation()">
+                            <div class="flex items-center justify-between border-b border-white/5 pb-3">
+                                <h5 class="text-[10px] font-black uppercase tracking-widest text-sky-400">Selected Menu Files</h5>
+                                <span id="onboardPendingCount" class="text-[10px] font-bold text-white/50">0 files selected</span>
+                            </div>
+                            
+                            <!-- File Chips list -->
+                            <div id="onboardPendingList" class="flex flex-wrap justify-center gap-3 max-h-[160px] overflow-y-auto no-scrollbar py-1"></div>
+                            
+                            <!-- Action Buttons inside the box -->
+                            <div class="flex justify-center gap-4 pt-2">
+                                <button onclick="triggerFileSelect(event)" class="px-5 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white transition-all flex items-center gap-2">
+                                    ➕ ADD MORE FILES
+                                </button>
+                                <button onclick="startOnboardExtraction(event)" class="px-6 py-3 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 font-black uppercase tracking-widest text-[10px] rounded-2xl shadow-xl transition-all hover:scale-105 active:scale-95 flex items-center gap-2 text-white">
+                                    ⚡ START AI EXTRACTION
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Loading State -->
+                        <div class="hidden text-center space-y-3" id="onboardUploadLoading">
+                            <div class="flex justify-center"><div class="spinner !w-10 !h-10 border-[3px] !border-sky-500 !border-t-transparent"></div></div>
+                            <h4 class="text-sm font-bold tracking-tight text-sky-400 animate-pulse">Gemini 2.0 Flash OCR Parsing...</h4>
+                            <p class="text-[10px] text-dim" id="onboardProgressStatus">Extracting restaurant profile and menu details...</p>
+                        </div>
+                    </div>
+
+                    <!-- Logs Console -->
+                    <div class="glass-card rounded-3xl p-6 bg-black/60 border-white/5 flex flex-col min-h-[200px] justify-between">
+                        <div>
+                            <div class="flex items-center gap-2 mb-4">
+                                <span class="w-2.5 h-2.5 rounded-full bg-sky-500 animate-pulse"></span>
+                                <h5 class="text-[10px] font-black uppercase tracking-[0.3em] opacity-40 text-sky-400">Onboarding AI logs</h5>
+                            </div>
+                            <div id="onboardLogsList" class="font-mono text-[10px] space-y-2 max-h-[140px] overflow-y-auto no-scrollbar">
+                                <div class="text-white/30 italic">Ready. Upload menu image to run AI onboarding.</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Extracted Menu Items Table (Shown after parsing) -->
+            <div id="onboardTableContainer" class="hidden glass-card rounded-3xl p-8 bg-white/[0.02] border-white/5 space-y-6">
+                <!-- 🚀 Onboard Action Bar (Now Placed at the Top of the Second Screen) -->
+                <div class="glass-card rounded-2xl p-6 bg-gradient-to-r from-sky-500/10 to-indigo-500/10 border border-sky-500/20 flex flex-col md:flex-row justify-between items-center gap-6">
+                    <div>
+                        <h3 class="text-lg font-black text-white">Deploy verified merchant with 1-click</h3>
+                        <p class="text-[11px] text-white/60 mt-1">Inserts directly to POS database, creates hashed credentials, and syncs categories & menu items.</p>
+                    </div>
+                    <button onclick="deployMerchant()" class="px-6 py-3.5 bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 font-black uppercase tracking-widest text-[10px] rounded-xl shadow-xl transition-all hover:scale-105 active:scale-95 flex items-center gap-2">
+                        🚀 ONBOARD & DEPLOY MERCHANT
+                    </button>
+                </div>
+
+                <div class="flex items-center justify-between border-b border-white/5 pb-6">
+                    <div>
+                        <h3 class="text-xl font-bold tracking-tight">AI Parsed Menu Preview</h3>
+                        <p class="text-xs text-dim mt-1">Review, edit, or adjust items before publishing to POS database.</p>
+                    </div>
+                    <span id="onboardCountBadge" class="px-4 py-2 bg-sky-500/10 text-sky-400 border border-sky-500/20 text-[10px] font-black uppercase tracking-wider rounded-xl">0 Items Extracted</span>
+                </div>
+
+                <div class="overflow-x-auto rounded-2xl border border-white/5">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-white/[0.02] border-b border-white/5 text-[10px] font-black uppercase tracking-wider text-white/50">
+                                <th class="px-6 py-4">Category</th>
+                                <th class="px-6 py-4">Item Name</th>
+                                <th class="px-6 py-4">Price (₹)</th>
+                                <th class="px-6 py-4">Type</th>
+                                <th class="px-6 py-4">Description</th>
+                                <th class="px-6 py-4 text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="onboardTableBody" class="divide-y divide-white/5 font-medium text-xs text-white/80"></tbody>
+                    </table>
+                </div>
+                
+                <div class="flex justify-start">
+                    <button onclick="addOnboardRow()" class="px-5 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest text-sky-400 transition-all">
+                        ➕ ADD MANUAL ITEM
+                    </button>
+                </div>
+            </div>
+        </main>
+
+        <!-- PAGE: Menu OCR Converter -->
+        <main id="page-menu-ocr" class="tab-content hidden space-y-12">
+            <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+                <div>
+                    <h2 class="text-4xl font-black tracking-tight shimmer-text">AI Menu OCR to Excel</h2>
+                    <p class="text-xs text-dim mt-1">Convert blurry images or multi-page PDFs of restaurant menus into ready-to-use structured Excel formats instantly using Gemini 2.0 Multimodal OCR.</p>
+                </div>
+                <div class="flex items-center gap-4">
+                    <button onclick="clearOCRResults()" class="px-5 py-3 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white/50 hover:bg-white/10 hover:text-white transition-all">
+                        🧹 CLEAR ALL
+                    </button>
+                </div>
+            </div>
+
+            <!-- Upload Zone & Live Log Console -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- Left: Upload Box -->
+                <div class="lg:col-span-2 relative group glass-card p-10 bg-white/[0.02] border-white/5 rounded-3xl transition-all duration-500 hover:border-purple-500/30 flex flex-col justify-center items-center min-h-[300px] border-2 border-dashed border-white/10">
+                    <input type="file" id="ocrFileInput" accept="image/*,application/pdf" class="absolute inset-0 opacity-0 cursor-pointer" onchange="handleOCRUpload(event)" />
+                    <div class="text-center space-y-4 pointer-events-none" id="ocrUploadPrompt">
+                        <span class="text-6xl animate-bounce duration-1000 inline-block">📤</span>
+                        <h4 class="text-xl font-bold tracking-tight text-white/80">Drag & Drop or Click to Upload</h4>
+                        <p class="text-xs text-dim">Supports JPG, PNG, WEBP, and PDF menus up to 10+ pages</p>
+                    </div>
+                    <div class="hidden text-center space-y-4" id="ocrUploadLoading">
+                        <div class="flex justify-center"><div class="spinner !w-12 !h-12 border-[3px]"></div></div>
+                        <h4 class="text-lg font-bold tracking-tight text-purple-400 animate-pulse">Running Multimodal Gemini-2.0 OCR...</h4>
+                        <p class="text-xs text-dim" id="ocrProgressStatus">Reading menu layout, parsing categories and prices...</p>
+                    </div>
+                </div>
+
+                <!-- Right: Scraper Log Console -->
+                <div class="glass-card rounded-3xl p-6 bg-black/60 border-white/5 relative flex flex-col min-h-[300px] justify-between">
+                    <div>
+                        <div class="flex items-center gap-2 mb-4">
+                            <span class="w-2.5 h-2.5 rounded-full bg-purple-500 animate-pulse"></span>
+                            <h5 class="text-[10px] font-black uppercase tracking-[0.3em] opacity-40">AI Pipeline Logs</h5>
+                        </div>
+                        <div id="ocrLogsList" class="font-mono text-xs space-y-2 max-h-[200px] overflow-y-auto no-scrollbar">
+                            <div class="text-white/30 italic">Ready. Upload a menu file to start extraction pipeline.</div>
+                        </div>
+                    </div>
+                    <div class="pt-4 border-t border-white/5 flex items-center justify-between text-[10px] uppercase font-bold tracking-wider text-dim">
+                        <span>Engine: Gemini-2.0-Flash</span>
+                        <span>v1.0.0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Extracted Menu Table Section -->
+            <div id="ocrTableContainer" class="hidden space-y-6">
+                <!-- Restaurant Metadata Profile Card -->
+                <div class="glass-card p-6 bg-white/[0.02] border-white/5 rounded-3xl space-y-4">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xl">🏢</span>
+                        <h4 class="text-xs font-black uppercase tracking-widest text-purple-400">Restaurant Header Details (Excel Style Title Block)</h4>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        <div class="space-y-1">
+                            <label class="text-[10px] uppercase font-bold text-dim">Restaurant Name</label>
+                            <input type="text" id="ocrRestName" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white text-xs focus:border-purple-500 focus:outline-none" />
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-[10px] uppercase font-bold text-dim">Address</label>
+                            <input type="text" id="ocrRestAddress" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white text-xs focus:border-purple-500 focus:outline-none" />
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-[10px] uppercase font-bold text-dim">Timings</label>
+                            <input type="text" id="ocrRestTimings" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white text-xs focus:border-purple-500 focus:outline-none" />
+                        </div>
+                        <div class="space-y-1">
+                            <label class="text-[10px] uppercase font-bold text-dim">Phone / Contact</label>
+                            <input type="text" id="ocrRestPhone" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white text-xs focus:border-purple-500 focus:outline-none" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white/[0.02] border border-white/5 p-6 rounded-3xl">
+                    <div class="flex items-center gap-4">
+                        <span class="px-3 py-1 bg-purple-500/20 border border-purple-500/30 text-purple-400 text-[10px] font-black uppercase tracking-widest rounded-full" id="extractedCountBadge">0 Items Extracted</span>
+                    </div>
+                    <!-- Export Actions -->
+                    <div class="flex flex-wrap items-center gap-3">
+                        <button onclick="exportOCRMenu('general')" class="px-5 py-3 btn-primary text-[10px] font-black uppercase tracking-widest rounded-xl flex items-center gap-2 !bg-gradient-to-r !from-green-500 !to-emerald-600 shadow-emerald-900/20">
+                            <span>📊 Export General Excel</span>
+                        </button>
+                        <button onclick="exportOCRMenu('zomato')" class="px-5 py-3 btn-primary text-[10px] font-black uppercase tracking-widest rounded-xl flex items-center gap-2 !bg-gradient-to-r !from-red-500 !to-rose-600 shadow-rose-900/20">
+                            <span>🍱 Export Zomato Ready</span>
+                        </button>
+                        <button onclick="exportOCRMenu('swiggy')" class="px-5 py-3 btn-primary text-[10px] font-black uppercase tracking-widest rounded-xl flex items-center gap-2 !bg-gradient-to-r !from-orange-500 !to-amber-600 shadow-amber-900/20">
+                            <span>🍊 Export Swiggy Ready</span>
+                        </button>
+                        <button onclick="exportOCRMenu('pos')" class="px-5 py-3 btn-primary text-[10px] font-black uppercase tracking-widest rounded-xl flex items-center gap-2 !bg-gradient-to-r !from-purple-500 !to-indigo-600 shadow-indigo-900/20">
+                            <span>💻 Export POS Import</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="glass-card rounded-3xl overflow-hidden border border-white/5 shadow-2xl">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-white/[0.02] border-b border-white/5 text-[10px] uppercase font-black tracking-widest text-dim">
+                                    <th class="px-6 py-4">Category</th>
+                                    <th class="px-6 py-4">Item Name</th>
+                                    <th class="px-6 py-4">Price (₹)</th>
+                                    <th class="px-6 py-4">Description</th>
+                                    <th class="px-6 py-4">Type (Veg/Non-Veg)</th>
+                                    <th class="px-6 py-4 text-center">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ocrTableBody">
+                                <!-- Extracted menu items populated here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="flex justify-between items-center bg-white/[0.01] p-4 rounded-2xl border border-white/5">
+                    <button onclick="addNewOCRRow()" class="px-5 py-3 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/20 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all">
+                        ➕ ADD NEW MENU ITEM
+                    </button>
+                </div>
+            </div>
+        </main>
     </div>
 
     <!-- MODAL: MANUAL OVERRIDE -->
@@ -574,6 +1177,18 @@
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
+        window.onerror = function(message, source, lineno, colno, error) {
+            const errStr = `🔴 [JS ERROR] ${message} at ${source}:${lineno}:${colno}`;
+            console.error(errStr, error);
+            alert(errStr + (error ? "\n\nStack: " + error.stack : ""));
+            return false;
+        };
+        window.onunhandledrejection = function(event) {
+            const errStr = `🔴 [UNHANDLED REJECTION] ${event.reason}`;
+            console.error(errStr);
+            alert(errStr + (event.reason && event.reason.stack ? "\n\nStack: " + event.reason.stack : ""));
+        };
+
         const socket = io();
         let allGalleryItems = [];
         let currentUserId = '';
@@ -599,11 +1214,19 @@
             consoleBox.scrollTop = consoleBox.scrollHeight;
         });
 
+        socket.on('merchant:log', (data) => {
+            if (typeof addDiagnosticLog === 'function') {
+                addDiagnosticLog(data.message, data.status);
+            }
+        });
+
         function filterBridge() {
             const query = document.getElementById('bridge-search').value.toLowerCase();
             const cards = document.querySelectorAll('#restaurantGrid > div');
             cards.forEach(card => {
-                const name = card.querySelector('h4').innerText.toLowerCase();
+                const h4 = card.querySelector('h4');
+                if (!h4) return;
+                const name = h4.innerText.toLowerCase();
                 if(name.includes(query)) card.classList.remove('hidden');
                 else card.classList.add('hidden');
             });
@@ -1125,10 +1748,43 @@
                 console.log("♻️ [UI] Update received for current restaurant. Soft refreshing menu only.");
             } else {
                 currentUserId = id;
+                toggleBridgeOcr(false);
+                toggleBridgeBills(false);
                 document.getElementById('restaurantView').classList.add('hidden');
                 document.getElementById('selectedRestoName').innerText = name || id;
                 document.getElementById('selectedRestoId').innerText = `BILLING ID: ${id}`;
                 document.getElementById('selectedUserView').classList.remove('hidden');
+
+                // Reset Logo UI components immediately to load new state
+                const emptyState = document.getElementById('logoEmptyState');
+                const previewImage = document.getElementById('logoPreviewImage');
+                const deleteBtn = document.getElementById('logoDeleteBtn');
+                const uploadingSpinner = document.getElementById('logoUploadingSpinner');
+
+                if (emptyState && previewImage && deleteBtn && uploadingSpinner) {
+                    previewImage.src = '';
+                    previewImage.classList.add('hidden');
+                    emptyState.classList.remove('hidden');
+                    deleteBtn.classList.add('hidden');
+                    uploadingSpinner.classList.add('hidden');
+                }
+
+                // Fetch and load restaurant profile logo asynchronously
+                fetch(`/api/merchant/profile/${id}`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success && data.profile && data.profile.logoUrl) {
+                            if (previewImage && emptyState && deleteBtn) {
+                                previewImage.src = data.profile.logoUrl;
+                                previewImage.classList.remove('hidden');
+                                emptyState.classList.add('hidden');
+                                deleteBtn.classList.remove('hidden');
+                            }
+                        }
+                    })
+                    .catch(err => {
+                        console.warn(`[Client] Failed to load business profile / logo for ${id}:`, err);
+                    });
             }
             
             const list = document.getElementById('externalMenuList');
@@ -1162,7 +1818,20 @@
                 html += `<div class="mt-8 mb-4 flex items-center gap-4"><span class="w-3 h-3 rounded-full bg-emerald-500"></span><h5 class="text-xs font-black uppercase tracking-[0.3em] opacity-40">PRODUCTION READY ASSETS (${completed.length})</h5></div>
                 <div class="grid grid-cols-1 gap-4">${completed.map(i => renderItemRow(i, true)).join('')}</div>`;
             }
-            if(pending.length === 0 && completed.length === 0) html = '<p class="p-20 opacity-30 text-center italic tracking-widest">No menu items found.</p>';
+            if(pending.length === 0 && completed.length === 0) {
+                html = `
+                <div class="glass-card p-20 bg-gradient-to-br from-orange-500/[0.04] to-transparent border-orange-500/10 text-center space-y-8 rounded-[40px]">
+                    <div class="text-7xl filter drop-shadow-[0_0_30px_rgba(249,115,22,0.4)]">🍽️</div>
+                    <div>
+                        <h4 class="text-3xl font-black text-white/80 tracking-tight">No Menu Items Found</h4>
+                        <p class="text-sm text-white/30 mt-3 tracking-wider">This restaurant has no menu items in Kravy POS yet.</p>
+                    </div>
+                    <button onclick="toggleBridgeOcr(true)" class="inline-flex items-center gap-3 px-12 py-6 bg-orange-500 hover:bg-orange-400 text-black font-black text-sm uppercase tracking-widest rounded-3xl shadow-[0_0_40px_rgba(249,115,22,0.4)] transition-all hover:scale-105 active:scale-95">
+                        📥 UPLOAD & SYNC NEW MENU
+                    </button>
+                    <p class="text-[10px] text-white/20 tracking-widest">Drop a menu image or PDF — Gemini AI will extract all items in seconds</p>
+                </div>`;
+            }
             list.innerHTML = html;
         }
 
@@ -1290,7 +1959,12 @@
         }
 
         function closePreview() { document.getElementById('previewModal').classList.add('hidden'); document.body.style.overflow = 'auto'; }
-        function backToRestaurants() { document.getElementById('selectedUserView').classList.add('hidden'); document.getElementById('restaurantView').classList.remove('hidden'); }
+        function backToRestaurants() { 
+            toggleBridgeOcr(false);
+            toggleBridgeBills(false);
+            document.getElementById('selectedUserView').classList.add('hidden'); 
+            document.getElementById('restaurantView').classList.remove('hidden'); 
+        }
         function closeModal() { document.getElementById('overrideModal').classList.add('hidden'); }
 
         function openOverrideModal(id, name) {
@@ -1441,6 +2115,1663 @@
 
         fetchData();
         loadRestaurants();
+
+        // --- MENU AI OCR CONVERTER JS ENGINE ---
+        let ocrMenuItems = [];
+
+        function appendOCRLog(message, type = 'info') {
+            const list = document.getElementById('ocrLogsList');
+            const log = document.createElement('div');
+            const colors = { 
+                'info': 'text-purple-400', 
+                'success': 'text-emerald-400 font-bold', 
+                'error': 'text-red-400 font-bold',
+                'warning': 'text-yellow-400' 
+            };
+            log.className = `${colors[type] || 'text-white/40'} flex gap-2`;
+            log.innerHTML = `<span class="opacity-20">[${new Date().toLocaleTimeString()}]</span> <span>${message}</span>`;
+            if (list) {
+                list.appendChild(log);
+                list.scrollTop = list.scrollHeight;
+            }
+        }
+
+        async function handleOCRUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            // Update UI loaders
+            document.getElementById('ocrUploadPrompt').classList.add('hidden');
+            document.getElementById('ocrUploadLoading').classList.remove('hidden');
+            document.getElementById('ocrLogsList').innerHTML = '';
+
+            appendOCRLog(`📡 Initializing OCR pipeline...`);
+            appendOCRLog(`📁 Uploaded: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`, 'info');
+            appendOCRLog(`⚡ Sending file to Multimodal Gemini AI...`, 'warning');
+
+            const formData = new FormData();
+            formData.append('menuFile', file);
+
+            try {
+                const res = await fetch('/api/menu/upload-ocr', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(data.error || 'Server error occurred during OCR');
+                }
+
+                ocrMenuItems = data.menu || [];
+                
+                // Set Restaurant Header fields
+                document.getElementById('ocrRestName').value = data.restaurantName || "AI Scraped Restaurant";
+                document.getElementById('ocrRestAddress').value = data.address || "Delhi NCR";
+                document.getElementById('ocrRestTimings').value = data.timings || "11:00 AM - 11:00 PM";
+                document.getElementById('ocrRestPhone').value = data.phone || "+91 99999 99999";
+
+                appendOCRLog(`🏢 Restaurant Extracted: ${data.restaurantName || "Unnamed"}`, 'success');
+                appendOCRLog(`✅ Extracted ${ocrMenuItems.length} menu items successfully!`, 'success');
+                
+                // Show table
+                document.getElementById('ocrTableContainer').classList.remove('hidden');
+                renderOCRTable();
+
+            } catch (e) {
+                appendOCRLog(`🚨 OCR Pipeline Failed: ${e.message}`, 'error');
+                alert(`OCR pipeline failed: ${e.message}`);
+            } finally {
+                document.getElementById('ocrUploadPrompt').classList.remove('hidden');
+                document.getElementById('ocrUploadLoading').classList.add('hidden');
+                // Clear the input so upload triggers again on same file
+                document.getElementById('ocrFileInput').value = '';
+            }
+        }
+
+        function renderOCRTable() {
+            const body = document.getElementById('ocrTableBody');
+            document.getElementById('extractedCountBadge').innerText = `${ocrMenuItems.length} Items Extracted`;
+            body.innerHTML = '';
+
+            ocrMenuItems.forEach((item, index) => {
+                const tr = document.createElement('tr');
+                tr.className = 'border-b border-white/5 hover:bg-white/[0.01] transition-all';
+                
+                // Map isVeg standard boolean to default
+                let vegSelected = item.isVeg !== undefined ? item.isVeg : (item.type === "Pure Veg");
+
+                tr.innerHTML = `
+                    <td class="px-6 py-4">
+                        <input type="text" value="${item.category || ''}" class="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white text-xs w-full focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500" onchange="updateOCRItem(${index}, 'category', this.value)" />
+                    </td>
+                    <td class="px-6 py-4 font-bold text-white">
+                        <input type="text" value="${item.name || ''}" class="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white text-xs w-full focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500" onchange="updateOCRItem(${index}, 'name', this.value)" />
+                    </td>
+                    <td class="px-6 py-4 font-mono text-purple-400 font-bold">
+                        <input type="number" value="${item.price || 0}" class="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white text-xs w-24 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500" onchange="updateOCRItem(${index}, 'price', parseFloat(this.value) || 0)" />
+                    </td>
+                    <td class="px-6 py-4">
+                        <input type="text" value="${item.description || 'N/A'}" class="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white text-xs w-full focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500" onchange="updateOCRItem(${index}, 'description', this.value)" />
+                    </td>
+                    <td class="px-6 py-4">
+                        <select class="bg-black border border-white/10 rounded-xl px-4 py-2 text-white text-xs focus:border-purple-500 focus:outline-none" onchange="updateOCRItem(${index}, 'isVeg', this.value === 'true')">
+                            <option value="true" ${vegSelected ? 'selected' : ''}>🟢 Vegetarian</option>
+                            <option value="false" ${!vegSelected ? 'selected' : ''}>🔴 Non-Vegetarian</option>
+                        </select>
+                    </td>
+                    <td class="px-6 py-4 text-center">
+                        <button onclick="deleteOCRRow(${index})" class="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all">
+                            🗑️ DELETE
+                        </button>
+                    </td>
+                `;
+                body.appendChild(tr);
+            });
+        }
+
+        function updateOCRItem(index, field, value) {
+            if (ocrMenuItems[index]) {
+                ocrMenuItems[index][field] = value;
+                if (field === 'isVeg') {
+                    ocrMenuItems[index]['type'] = value ? 'Pure Veg' : 'Non-Veg';
+                }
+                appendOCRLog(`✏️ Updated item at row ${index + 1}: ${field} ➔ ${value}`, 'info');
+            }
+        }
+
+        function deleteOCRRow(index) {
+            const removed = ocrMenuItems.splice(index, 1)[0];
+            appendOCRLog(`🗑️ Deleted item: ${removed?.name || 'Unnamed'}`, 'warning');
+            renderOCRTable();
+        }
+
+        function addNewOCRRow() {
+            ocrMenuItems.push({
+                category: 'Main Course',
+                name: 'New Menu Item (V) (F)',
+                price: 150,
+                description: 'Fresh cottage cheese prepared with select home-ground spices.',
+                isVeg: true,
+                type: 'Pure Veg'
+            });
+            appendOCRLog(`➕ Added a new row at index ${ocrMenuItems.length}`, 'info');
+            renderOCRTable();
+        }
+
+        function clearOCRResults() {
+            ocrMenuItems = [];
+            document.getElementById('ocrTableContainer').classList.add('hidden');
+            document.getElementById('ocrLogsList').innerHTML = '<div class="text-white/30 italic">Ready. Upload a menu file to start extraction pipeline.</div>';
+            appendOCRLog(`🧹 OCR workspace cleared.`, 'info');
+        }
+
+        async function exportOCRMenu(formatType) {
+            if (ocrMenuItems.length === 0) {
+                alert('No items to export!');
+                return;
+            }
+
+            // Gather current values from the UI
+            const restaurantName = document.getElementById('ocrRestName').value || 'AI Scraped Restaurant';
+            const address = document.getElementById('ocrRestAddress').value || 'Delhi NCR';
+            const timings = document.getElementById('ocrRestTimings').value || '11:00 AM - 11:00 PM';
+            const phone = document.getElementById('ocrRestPhone').value || '+91 99999 99999';
+
+            // Map UI items to backend parameters
+            const mappedMenu = ocrMenuItems.map(i => {
+                let isVegVal = i.isVeg !== undefined ? i.isVeg : (i.type === "Pure Veg");
+                return {
+                    name: i.name,
+                    price: Number(i.price) || 0,
+                    category: i.category,
+                    type: isVegVal ? 'Pure Veg' : 'Non-Veg',
+                    description: i.description
+                };
+            });
+
+            if (formatType === 'general') {
+                const fileName = `Formatted_AI_Menu_${Date.now()}.xlsx`;
+                appendOCRLog(`📊 Contacting backend to compile highly styled Excel sheet: ${fileName}...`, 'warning');
+
+                try {
+                    const res = await fetch('/api/menu/export-formatted', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            restaurantName,
+                            address,
+                            timings,
+                            phone,
+                            menu: mappedMenu
+                        })
+                    });
+
+                    if (!res.ok) throw new Error('Failed to generate formatted Excel sheet on server');
+
+                    const blob = await res.blob();
+                    const downloadUrl = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = downloadUrl;
+                    a.download = fileName;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(downloadUrl);
+
+                    appendOCRLog(`🎉 Elite formatted Arial Excel sheet successfully compiled & downloaded!`, 'success');
+
+                } catch (e) {
+                    appendOCRLog(`🚨 Formatting Export Failed: ${e.message}`, 'error');
+                    alert(`Export failed: ${e.message}`);
+                }
+                return;
+            }
+
+            // Otherwise, local SheetJS export for standard templates
+            let exportData = [];
+            let fileName = '';
+
+            if (formatType === 'zomato') {
+                fileName = 'Zomato_Partner_Menu_Ready.xlsx';
+                exportData = ocrMenuItems.map(i => {
+                    let isVegVal = i.isVeg !== undefined ? i.isVeg : (i.type === "Pure Veg");
+                    return {
+                        'Dish Name': i.name,
+                        'Category Name': i.category,
+                        'Price (With GST)': i.price,
+                        'Description': i.description,
+                        'Type (Veg/Nonveg/Egg)': isVegVal ? 'Veg' : 'Nonveg',
+                        'Tax status (Inclusive/Exclusive)': 'Inclusive',
+                        'ActiveStatus': 'Active'
+                    };
+                });
+            } else if (formatType === 'swiggy') {
+                fileName = 'Swiggy_Partner_Menu_Ready.xlsx';
+                exportData = ocrMenuItems.map(i => {
+                    let isVegVal = i.isVeg !== undefined ? i.isVeg : (i.type === "Pure Veg");
+                    return {
+                        'Menu Item Name': i.name,
+                        'Menu Category': i.category,
+                        'Base Price': i.price,
+                        'Item Description': i.description,
+                        'Food Type (Veg/Non Veg/Egg)': isVegVal ? 'Veg' : 'Non Veg',
+                        'Is Recommended': 'No',
+                        'Gst rate %': '5'
+                    };
+                });
+            } else if (formatType === 'pos') {
+                fileName = 'POS_Import_Menu_Ready.xlsx';
+                exportData = ocrMenuItems.map(i => {
+                    let isVegVal = i.isVeg !== undefined ? i.isVeg : (i.type === "Pure Veg");
+                    return {
+                        'Item Name': i.name,
+                        'Category': i.category,
+                        'Selling Price': i.price,
+                        'Description': i.description,
+                        'Is Veg': isVegVal ? 'Yes' : 'No',
+                        'Is Recommended': 'No',
+                        'Opening Stock': 0,
+                        'Barcode': '',
+                        'Unit': 'pcs',
+                        'Tax Status': 'Inclusive'
+                    };
+                });
+            }
+
+            appendOCRLog(`📊 Generating partner sheet: ${fileName}...`, 'warning');
+
+            const worksheet = XLSX.utils.json_to_sheet(exportData);
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'Menu Sheet');
+            XLSX.writeFile(workbook, fileName);
+            appendOCRLog(`🎉 Excel export successfully downloaded: ${fileName}`, 'success');
+        }
+
+        // ==========================================
+        // MERCHANT ONBOARDING PIPELINE
+        // ==========================================
+        let onboardMenuItems = [];
+
+        function appendOnboardLog(text, type = 'info') {
+            const list = document.getElementById('onboardLogsList');
+            const time = new Date().toLocaleTimeString();
+            const colorMap = {
+                info: 'text-white/60',
+                success: 'text-emerald-400 font-bold',
+                warning: 'text-yellow-400',
+                error: 'text-red-400 font-bold'
+            };
+            const div = document.createElement('div');
+            div.className = `${colorMap[type]} transition-all duration-300`;
+            div.innerHTML = `<span class="opacity-30 mr-2">[${time}]</span> ${text}`;
+            list.appendChild(div);
+            list.scrollTop = list.scrollHeight;
+        }
+
+        function clearOnboardForm() {
+            document.getElementById('onboard-email').value = '';
+            document.getElementById('onboard-phone').value = '';
+            document.getElementById('onboard-password').value = 'Radha@987k';
+            const passBtn = document.getElementById('toggle-password-btn');
+            if (passBtn) passBtn.innerText = 'SHOW';
+            document.getElementById('onboard-password').type = 'password';
+            document.getElementById('onboard-rest-name').value = '';
+            document.getElementById('onboard-rest-address').value = '';
+            document.getElementById('onboard-rest-timings').value = '';
+            document.getElementById('onboard-rest-phone').value = '';
+            document.getElementById('onboardTableContainer').classList.add('hidden');
+            document.getElementById('onboardLogsList').innerHTML = '<div class="text-white/30 italic">Ready. Upload menu image to run AI onboarding.</div>';
+            onboardMenuItems = [];
+        }
+
+        function toggleOnboardPassword() {
+            const passInput = document.getElementById('onboard-password');
+            const passBtn = document.getElementById('toggle-password-btn');
+            if (passInput.type === 'password') {
+                passInput.type = 'text';
+                passBtn.innerText = 'HIDE';
+            } else {
+                passInput.type = 'password';
+                passBtn.innerText = 'SHOW';
+            }
+        }
+
+        let selectedOnboardFiles = [];
+
+        function handleDropZoneClick(e) {
+            // Only trigger file selection if they aren't clicking files inside
+            if (selectedOnboardFiles.length === 0) {
+                document.getElementById('onboardFileInput').click();
+            }
+        }
+
+        function triggerFileSelect(e) {
+            if (e) e.stopPropagation();
+            document.getElementById('onboardFileInput').click();
+        }
+
+        function handleOnboardFileSelected(event) {
+            const files = event.target.files;
+            if (files && files.length > 0) {
+                for (let i = 0; i < files.length; i++) {
+                    selectedOnboardFiles.push(files[i]);
+                }
+                renderPendingFiles();
+            }
+            event.target.value = ''; // Reset input so same file can be re-selected
+        }
+
+        function handleOnboardDragOver(e) {
+            e.preventDefault();
+            const zone = document.getElementById('onboardDropZone');
+            zone.classList.add('border-sky-500', 'bg-sky-500/[0.04]');
+            zone.classList.remove('border-white/10');
+            const promptEmoji = document.getElementById('onboardUploadPrompt')?.querySelector('span');
+            if (promptEmoji) promptEmoji.classList.add('scale-125');
+        }
+
+        function handleOnboardDragLeave(e) {
+            e.preventDefault();
+            const zone = document.getElementById('onboardDropZone');
+            zone.classList.remove('border-sky-500', 'bg-sky-500/[0.04]');
+            zone.classList.add('border-white/10');
+            const promptEmoji = document.getElementById('onboardUploadPrompt')?.querySelector('span');
+            if (promptEmoji) promptEmoji.classList.remove('scale-125');
+        }
+
+        async function handleOnboardDrop(e) {
+            e.preventDefault();
+            const zone = document.getElementById('onboardDropZone');
+            zone.classList.remove('border-sky-500', 'bg-sky-500/[0.04]');
+            zone.classList.add('border-white/10');
+            const promptEmoji = document.getElementById('onboardUploadPrompt')?.querySelector('span');
+            if (promptEmoji) promptEmoji.classList.remove('scale-125');
+
+            const files = e.dataTransfer.files;
+            if (files && files.length > 0) {
+                for (let i = 0; i < files.length; i++) {
+                    selectedOnboardFiles.push(files[i]);
+                }
+                renderPendingFiles();
+            }
+        }
+
+        function removePendingFile(index, e) {
+            if (e) e.stopPropagation();
+            selectedOnboardFiles.splice(index, 1);
+            renderPendingFiles();
+        }
+
+        function renderPendingFiles() {
+            const promptState = document.getElementById('onboardUploadPrompt');
+            const selectedState = document.getElementById('onboardFilesSelectedState');
+            const pendingList = document.getElementById('onboardPendingList');
+            const countText = document.getElementById('onboardPendingCount');
+
+            if (selectedOnboardFiles.length === 0) {
+                promptState.classList.remove('hidden');
+                selectedState.classList.add('hidden');
+                return;
+            }
+
+            promptState.classList.add('hidden');
+            selectedState.classList.remove('hidden');
+            countText.innerText = `${selectedOnboardFiles.length} file(s) selected`;
+
+            pendingList.innerHTML = '';
+            selectedOnboardFiles.forEach((file, index) => {
+                const isPdf = file.name.toLowerCase().endsWith('.pdf');
+                const fileIcon = isPdf ? '📕' : '📸';
+                
+                const chip = document.createElement('div');
+                chip.className = 'flex items-center gap-3 px-4 py-2 bg-white/[0.03] border border-white/5 hover:border-white/10 rounded-xl text-xs font-semibold text-white/90 shadow-md transition-all select-none';
+                chip.innerHTML = `
+                    <span class="text-sm">${fileIcon}</span>
+                    <span class="truncate max-w-[130px] font-medium" title="${file.name}">${file.name}</span>
+                    <span class="text-[9px] text-white/30 font-bold uppercase tracking-wider">${(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                    <button onclick="removePendingFile(${index}, event)" class="text-white/30 hover:text-rose-400 font-bold ml-1 transition-colors text-[10px] p-0.5 focus:outline-none">❌</button>
+                `;
+                pendingList.appendChild(chip);
+            });
+        }
+
+        async function startOnboardExtraction(e) {
+            if (e) e.stopPropagation();
+            if (selectedOnboardFiles.length === 0) return;
+
+            const selectedState = document.getElementById('onboardFilesSelectedState');
+            const loadingState = document.getElementById('onboardUploadLoading');
+
+            selectedState.classList.add('hidden');
+            loadingState.classList.remove('hidden');
+            document.getElementById('onboardLogsList').innerHTML = '';
+
+            appendOnboardLog(`📡 Initializing OCR pipeline for ${selectedOnboardFiles.length} file(s)...`);
+            
+            // Clear current list so we start fresh
+            onboardMenuItems = [];
+
+            for (let i = 0; i < selectedOnboardFiles.length; i++) {
+                const file = selectedOnboardFiles[i];
+                appendOnboardLog(`📁 File [${i + 1}/${selectedOnboardFiles.length}]: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`, 'info');
+                appendOnboardLog(`⚡ Sending to Multimodal Gemini 2.0 AI...`, 'warning');
+
+                const formData = new FormData();
+                formData.append('menuFile', file);
+
+                try {
+                    const res = await fetch('/api/menu/upload-ocr', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    const data = await res.json();
+
+                    if (!res.ok) {
+                        throw new Error(data.error || 'Server error during OCR processing.');
+                    }
+
+                    const extractedItems = data.menu || [];
+                    onboardMenuItems = onboardMenuItems.concat(extractedItems);
+                    
+                    // Populate forms if not already populated
+                    if (data.restaurantName && !document.getElementById('onboard-rest-name').value) {
+                        document.getElementById('onboard-rest-name').value = data.restaurantName;
+                    }
+                    if (data.address && !document.getElementById('onboard-rest-address').value) {
+                        document.getElementById('onboard-rest-address').value = data.address;
+                    }
+                    if (data.timings && !document.getElementById('onboard-rest-timings').value) {
+                        document.getElementById('onboard-rest-timings').value = data.timings;
+                    }
+                    if (data.phone && !document.getElementById('onboard-rest-phone').value) {
+                        document.getElementById('onboard-rest-phone').value = data.phone;
+                    }
+
+                    if (data.restaurantName) {
+                        appendOnboardLog(`🏢 Restaurant Extracted: ${data.restaurantName}`, 'success');
+                    }
+                    appendOnboardLog(`✅ Extracted ${extractedItems.length} items from ${file.name}!`, 'success');
+
+                } catch (e) {
+                    appendOnboardLog(`🚨 OCR Pipeline Failed for ${file.name}: ${e.message}`, 'error');
+                }
+            }
+
+            if (onboardMenuItems.length > 0) {
+                appendOnboardLog(`🏁 OCR PIPELINE COMPLETE: Total of ${onboardMenuItems.length} items ready.`, 'success');
+                // Render preview table
+                document.getElementById('onboardTableContainer').classList.remove('hidden');
+                renderOnboardTable();
+            } else {
+                appendOnboardLog(`🚨 No items could be extracted from any files.`, 'error');
+                alert(`OCR failed to extract any items.`);
+            }
+
+            loadingState.classList.add('hidden');
+            // Clear pending files list after extraction is done
+            selectedOnboardFiles = [];
+            renderPendingFiles();
+        }
+
+        function renderOnboardTable() {
+            const body = document.getElementById('onboardTableBody');
+            document.getElementById('onboardCountBadge').innerText = `${onboardMenuItems.length} Items Extracted`;
+            body.innerHTML = '';
+
+            onboardMenuItems.forEach((item, index) => {
+                const tr = document.createElement('tr');
+                tr.className = 'border-b border-white/5 hover:bg-white/[0.01] transition-all';
+                
+                let vegSelected = item.isVeg !== undefined ? item.isVeg : (item.type === "Pure Veg");
+
+                tr.innerHTML = `
+                    <td class="px-6 py-4">
+                        <input type="text" value="${item.category || ''}" class="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white text-xs w-full focus:border-sky-500 focus:outline-none" onchange="updateOnboardItem(${index}, 'category', this.value)" />
+                    </td>
+                    <td class="px-6 py-4">
+                        <input type="text" value="${item.name || ''}" class="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white text-xs w-full focus:border-sky-500 focus:outline-none" onchange="updateOnboardItem(${index}, 'name', this.value)" />
+                    </td>
+                    <td class="px-6 py-4" style="width: 110px;">
+                        <input type="number" value="${item.price || 0}" class="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white text-xs w-full focus:border-sky-500 focus:outline-none" onchange="updateOnboardItem(${index}, 'price', this.value)" />
+                    </td>
+                    <td class="px-6 py-4" style="width: 140px;">
+                        <select class="bg-[#0f0f11] border border-white/10 rounded-xl px-4 py-2 text-white text-xs w-full focus:border-sky-500 focus:outline-none" onchange="updateOnboardItem(${index}, 'type', this.value)">
+                            <option value="Pure Veg" ${vegSelected ? 'selected' : ''}>🟢 Pure Veg</option>
+                            <option value="Non-Veg (Egg)" ${item.type === "Non-Veg (Egg)" ? 'selected' : ''}>🟡 Egg</option>
+                            <option value="Non-Veg" ${item.type === "Non-Veg" || (!vegSelected && item.type !== "Non-Veg (Egg)") ? 'selected' : ''}>🔴 Non-Veg</option>
+                        </select>
+                    </td>
+                    <td class="px-6 py-4">
+                        <input type="text" value="${item.description || ''}" class="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white/70 text-xs w-full focus:border-sky-500 focus:outline-none" onchange="updateOnboardItem(${index}, 'description', this.value)" />
+                    </td>
+                    <td class="px-6 py-4 text-center">
+                        <button onclick="removeOnboardRow(${index})" class="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl border border-red-500/20 transition-all">🗑️</button>
+                    </td>
+                `;
+                body.appendChild(tr);
+            });
+        }
+
+        function updateOnboardItem(index, field, value) {
+            if (onboardMenuItems[index]) {
+                onboardMenuItems[index][field] = value;
+            }
+        }
+
+        function removeOnboardRow(index) {
+            onboardMenuItems.splice(index, 1);
+            renderOnboardTable();
+            appendOnboardLog(`🗑️ Removed item from preview.`, 'info');
+        }
+
+        function addOnboardRow() {
+            onboardMenuItems.push({
+                category: 'General',
+                name: 'New Item',
+                price: 100,
+                type: 'Pure Veg',
+                description: ''
+            });
+            renderOnboardTable();
+            appendOnboardLog(`➕ Manually added 1 empty item.`, 'info');
+        }
+
+        async function deployMerchant() {
+            const email = document.getElementById('onboard-email').value.trim();
+            const phone = document.getElementById('onboard-phone').value.trim();
+            const password = document.getElementById('onboard-password').value.trim();
+            const restaurantName = document.getElementById('onboard-rest-name').value.trim();
+            const address = document.getElementById('onboard-rest-address').value.trim();
+            const timings = document.getElementById('onboard-rest-timings').value.trim();
+            const contactPhone = document.getElementById('onboard-rest-phone').value.trim();
+
+            if (!email || !phone || !password || !restaurantName) {
+                alert("Please fill in all mandatory fields: Email, Phone, Password, and Restaurant Name are required.");
+                return;
+            }
+
+            appendOnboardLog(`🚀 Initiating Direct database deployment for: ${restaurantName}...`, 'warning');
+            
+            const payload = {
+                email,
+                phone,
+                password,
+                restaurantName,
+                address,
+                timings,
+                contactPhone,
+                menu: onboardMenuItems
+            };
+
+            try {
+                const res = await fetch('/api/merchant/onboard', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(data.error || 'Direct deployment failed.');
+                }
+
+                appendOnboardLog(`🎉 SUCCESS! Merchant successfully onboarded and verified!`, 'success');
+                appendOnboardLog(`👉 Custom Clerk ID: ${data.merchant.clerkId}`, 'info');
+                appendOnboardLog(`📦 Categories Created: ${data.merchant.categoriesSynced}`, 'info');
+                appendOnboardLog(`🍳 Menu Items Active: ${data.merchant.itemsSynced}`, 'info');
+
+                alert(`🎉 SUCCESS!\nMerchant account created & verified directly in Kravy POS!\n\nEmail: ${email}\nPassword: ${password}\nItems: ${data.merchant.itemsSynced}\n\nYou can now open your website at /Users/vikas/Desktop/kravy-pos-website and login!`);
+
+            } catch (e) {
+                appendOnboardLog(`🚨 Deployment Failed: ${e.message}`, 'error');
+                alert(`Direct Deployment Failed:\n${e.message}`);
+            }
+        }
+
+        // =====================================================================
+        // 🧹 BRIDGE: CLEAR / WIPE MENU SAFELY
+        // =====================================================================
+        async function clearRestaurantMenu() {
+            if (!currentUserId) return alert('No restaurant selected.');
+            const name = document.getElementById('selectedRestoName').innerText;
+            const confirmed = confirm(`⚠️ WIPE MENU WARNING\n\nAre you sure you want to delete ALL menu items and categories for:\n\n"${name}"\n\nThis action is safe — only menu items/categories will be removed. User accounts and business profiles stay intact.\n\nConfirm?`);
+            if (!confirmed) return;
+
+            try {
+                const res = await fetch('/api/merchant/clear-menu', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ clerkId: currentUserId })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Clear menu failed.');
+
+                alert(`✅ Menu Cleared!\n\nItems Removed: ${data.itemsCleared}\nCategories Removed: ${data.categoriesCleared}\n\nRestaurant: "${name}"\n\nYou can now upload a fresh menu using AI OCR.`);
+
+                // Refresh the menu list to show empty state
+                await selectRestaurant(currentUserId, name);
+                // Auto-open the OCR panel
+                toggleBridgeOcr(true);
+
+            } catch (e) {
+                alert(`❌ Wipe Failed: ${e.message}`);
+            }
+        }
+
+        // =====================================================================
+        // 📥 BRIDGE: TOGGLE OCR UPLOAD PANEL
+        // =====================================================================
+        function toggleBridgeOcr(forceOpen) {
+            try {
+                const container = document.getElementById('bridgeOcrContainer');
+                const btn = document.getElementById('toggleOcrBtn');
+                if (!container) return;
+                
+                const isHidden = container.classList.contains('hidden');
+                const shouldOpen = (forceOpen === true) ? true : (forceOpen === false) ? false : isHidden;
+
+                if (shouldOpen) {
+                    toggleBridgeBills(false); // Close bills panel when opening OCR
+                    toggleBridgeAiProfile(false); // Close AI profile panel when opening OCR
+                    container.classList.remove('hidden');
+                    if (btn) btn.classList.add('bg-orange-500', 'text-black');
+                    // Smooth scroll to the OCR panel
+                    if (container.scrollIntoView) {
+                        container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                } else {
+                    container.classList.add('hidden');
+                    if (btn) btn.classList.remove('bg-orange-500', 'text-black');
+                }
+            } catch (err) {
+                console.error("Error toggling OCR panel:", err);
+            }
+        }
+
+        // =====================================================================
+        // 📋 BRIDGE: TOGGLE BILLS HISTORY PANEL & OPERATIONS
+        // =====================================================================
+        function toggleBridgeBills(forceOpen) {
+            try {
+                const container = document.getElementById('bridgeBillsContainer');
+                const btn = document.getElementById('toggleBillsBtn');
+                
+                // Add console logs in the renderer so the user can inspect them
+                console.log(`[Bridge UI] toggleBridgeBills triggered. forceOpen:`, forceOpen, `currentUserId:`, currentUserId);
+                
+                if (typeof addDiagnosticLog === 'function') {
+                    addDiagnosticLog(`⚙️ [Client] Toggling bills panel. forceOpen=${forceOpen}, Merchant ID="${currentUserId}"`, 'info');
+                }
+
+                if (!container) {
+                    console.error("❌ [Client] bridgeBillsContainer element not found!");
+                    alert("Error: bridgeBillsContainer element not found!");
+                    return;
+                }
+
+                const isHidden = container.classList.contains('hidden');
+                const shouldOpen = (forceOpen === true) ? true : (forceOpen === false) ? false : isHidden;
+
+                if (shouldOpen) {
+                    toggleBridgeOcr(false); // Close OCR panel when opening bills
+                    toggleBridgeAiProfile(false); // Close AI profile panel when opening bills
+                    container.classList.remove('hidden');
+                    if (btn) btn.classList.add('bg-orange-500', 'text-black');
+                    loadRestaurantBills();
+                    // Smooth scroll to the bills panel
+                    if (container.scrollIntoView) {
+                        container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                } else {
+                    container.classList.add('hidden');
+                    if (btn) btn.classList.remove('bg-orange-500', 'text-black');
+                }
+            } catch (err) {
+                console.error("Error toggling bills panel:", err);
+                alert("Error: " + err.message);
+            }
+        }
+
+        // =====================================================================
+        // 🛠️ REAL-TIME DIAGNOSTIC CONSOLE UTILITIES
+        // =====================================================================
+        function addDiagnosticLog(message, status = 'info') {
+            const list = document.getElementById('bridgeDiagnosticLogs');
+            if (!list) return;
+
+            // Remove placeholder if present
+            const placeholder = list.querySelector('.italic');
+            if (placeholder) {
+                placeholder.remove();
+            }
+
+            const log = document.createElement('div');
+            const colors = { 
+                'success': 'text-emerald-400', 
+                'error': 'text-rose-400 font-bold animate-pulse', 
+                'primary': 'text-orange-400',
+                'info': 'text-sky-400',
+                'warning': 'text-amber-400'
+            };
+            
+            let colorClass = colors[status] || 'text-white/70';
+            
+            log.className = `flex gap-3 leading-relaxed border-b border-white/[0.01] py-1 ${colorClass}`;
+            log.innerHTML = `<span class="text-white/20 select-none">[${new Date().toLocaleTimeString()}]</span><span>${escapeHTML(message)}</span>`;
+            
+            list.appendChild(log);
+            list.scrollTop = list.scrollHeight;
+        }
+
+        function clearDiagnosticLogs() {
+            const list = document.getElementById('bridgeDiagnosticLogs');
+            if (list) {
+                list.innerHTML = `<div class="text-white/30 italic">Diagnostic log console cleared. Ready to capture live events...</div>`;
+            }
+        }
+        
+        function escapeHTML(str) {
+            return str.replace(/[&<>'"]/g, 
+                tag => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    "'": '&#39;',
+                    '"': '&quot;'
+                }[tag] || tag)
+            );
+        }
+
+        async function loadRestaurantBills() {
+            const tableBody = document.getElementById('bridgeBillsTableBody');
+            
+            if (typeof addDiagnosticLog === 'function') {
+                addDiagnosticLog(`🔄 [Client] loadRestaurantBills invoked. currentUserId="${currentUserId}"`, 'info');
+            }
+
+            if (!tableBody) {
+                console.error("❌ [Client] bridgeBillsTableBody element not found!");
+                return;
+            }
+
+            if (!currentUserId) {
+                if (typeof addDiagnosticLog === 'function') {
+                    addDiagnosticLog(`⚠️ [Client] No Merchant selected! Can't fetch bills.`, 'warning');
+                }
+                tableBody.innerHTML = '<tr><td colspan="7" class="px-6 py-10 text-center text-rose-400 italic">No restaurant selected. Please select a restaurant from the Gateway first.</td></tr>';
+                return;
+            }
+
+            tableBody.innerHTML = '<tr><td colspan="7" class="px-6 py-10 text-center text-white/40 italic">Loading bills...</td></tr>';
+            addDiagnosticLog(`🔄 [Client] Starting bills fetch request for Merchant ID: "${currentUserId}"...`, 'info');
+
+            try {
+                const res = await fetch(`/api/merchant/bills/${currentUserId}`);
+                const data = await res.json();
+
+                if (!res.ok) {
+                    const errMsg = data.error || 'Failed to fetch bills.';
+                    addDiagnosticLog(`❌ [Client] API Request failed: ${errMsg}`, 'error');
+                    throw new Error(errMsg);
+                }
+
+                const bills = data.bills || [];
+                const stats = data.stats || { totalCount: 0, totalRevenue: 0, paymentsBreakdown: {} };
+
+                addDiagnosticLog(`✅ [Client] Received ${bills.length} bills successfully. Rendering dashboard views...`, 'success');
+
+                // Update summary stats with safety guards
+                const countEl = document.getElementById('bills-total-count');
+                if (countEl) countEl.innerText = stats.totalCount;
+
+                const revEl = document.getElementById('bills-total-revenue');
+                if (revEl) {
+                    const revNum = Number(stats.totalRevenue || 0);
+                    revEl.innerText = `₹${revNum.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                }
+
+                // Format breakdown
+                const breakdownItems = [];
+                for (const [mode, amt] of Object.entries(stats.paymentsBreakdown || {})) {
+                    const amtNum = Number(amt || 0);
+                    breakdownItems.push(`${mode.toUpperCase()}: ₹${amtNum.toLocaleString('en-IN')}`);
+                }
+                const breakdownEl = document.getElementById('bills-payments-breakdown');
+                if (breakdownEl) {
+                    breakdownEl.innerHTML = breakdownItems.length > 0 
+                        ? breakdownItems.join(' <span class="text-white/20">|</span> ') 
+                        : '<span class="text-white/30 italic">No payments recorded</span>';
+                }
+
+                if (bills.length === 0) {
+                    tableBody.innerHTML = '<tr><td colspan="7" class="px-6 py-10 text-center text-white/30 italic">No bills or orders found for this restaurant.</td></tr>';
+                    return;
+                }
+
+                tableBody.innerHTML = bills.map(bill => {
+                    let billDate = 'N/A';
+                    if (bill.createdAt) {
+                        try {
+                            billDate = new Date(bill.createdAt).toLocaleString('en-IN', {
+                                day: '2-digit',
+                                month: 'short',
+                                year: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                hour12: true
+                            });
+                        } catch (e) {
+                            billDate = String(bill.createdAt);
+                        }
+                    }
+                    
+                    // Parse items
+                    let itemsSummary = '';
+                    try {
+                        const items = typeof bill.items === 'string' ? JSON.parse(bill.items) : bill.items;
+                        if (Array.isArray(items)) {
+                            itemsSummary = items.map(i => {
+                                if (!i) return '';
+                                return `${i.name || i.dishName || 'Item'} x${i.quantity || i.qty || 1}`;
+                            }).filter(Boolean).join(', ');
+                            if (itemsSummary.length > 50) {
+                                itemsSummary = itemsSummary.substring(0, 47) + '...';
+                            }
+                        } else {
+                            itemsSummary = 'Invalid items format';
+                        }
+                    } catch (e) {
+                        itemsSummary = 'Error parsing items';
+                    }
+
+                    const custName = bill.customerName || '<span class="text-white/30 italic">Anonymous</span>';
+                    const custPhone = bill.customerPhone ? `<p class="text-[10px] text-white/40 font-bold mt-1">${bill.customerPhone}</p>` : '';
+                    
+                    const paymentStatusUpper = (bill.paymentStatus || '').toUpperCase();
+                    const paymentStatusBadge = paymentStatusUpper === 'PAID' || paymentStatusUpper === 'SUCCESS'
+                        ? '<span class="px-2.5 py-1 bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 text-[9px] font-black rounded-full uppercase tracking-wider">PAID</span>'
+                        : '<span class="px-2.5 py-1 bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[9px] font-black rounded-full uppercase tracking-wider">PENDING</span>';
+
+                    const billIdStr = String(bill._id || '');
+                    const displayId = bill.billNumber || (billIdStr ? (billIdStr.length > 8 ? billIdStr.substring(billIdStr.length - 8).toUpperCase() : billIdStr.toUpperCase()) : 'BILL');
+                    const billTotalNum = Number(bill.total || 0);
+
+                    return `
+                        <tr class="hover:bg-white/[0.02] transition-colors border-b border-white/5">
+                            <td class="px-6 py-5 font-bold text-orange-500 tracking-wider">${displayId}</td>
+                            <td class="px-6 py-5 text-white/60">${billDate}</td>
+                            <td class="px-6 py-5"><span class="px-2.5 py-1 bg-white/5 border border-white/10 text-[9px] font-black rounded-full uppercase tracking-widest">${bill.tableName || 'POS'}</span></td>
+                            <td class="px-6 py-5 font-bold">${custName}${custPhone}</td>
+                            <td class="px-6 py-5 text-white/50 text-[11px]" title="${escapeHTML(itemsSummary)}">${escapeHTML(itemsSummary)}</td>
+                            <td class="px-6 py-5">${paymentStatusBadge}<p class="text-[9px] text-white/40 mt-1 font-bold">${escapeHTML(bill.paymentMode || 'N/A')}</p></td>
+                            <td class="px-6 py-5 font-black text-white text-right pr-10">₹${billTotalNum.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                        </tr>
+                    `;
+                }).join('');
+
+            } catch (e) {
+                console.error("Error in loadRestaurantBills:", e);
+                if (typeof addDiagnosticLog === 'function') {
+                    addDiagnosticLog(`🚨 [Client] Render Error: ${e.message}`, 'error');
+                }
+                tableBody.innerHTML = `<tr><td colspan="7" class="px-6 py-10 text-center text-red-500">Error loading bills: ${e.message}</td></tr>`;
+            }
+        }
+
+        async function clearRestaurantBills() {
+            if (!currentUserId) return alert('No restaurant selected.');
+            const name = document.getElementById('selectedRestoName').innerText;
+            const confirmed = confirm(`⚠️ WIPE ALL BILLS WARNING\n\nAre you sure you want to delete ALL bills, orders, and payment records for:\n\n"${name}"\n\nThis action is irreversible! Menu items, categories, user accounts, and business profiles stay completely intact.\n\nConfirm?`);
+            if (!confirmed) return;
+
+            addDiagnosticLog(`⚠️ [Client] Requesting bulk deletion of bills for Merchant ID: "${currentUserId}"...`, 'warning');
+
+            try {
+                const res = await fetch('/api/merchant/clear-bills', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ clerkId: currentUserId })
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    const errMsg = data.error || 'Clear bills failed.';
+                    addDiagnosticLog(`❌ [Client] Deletion failed: ${errMsg}`, 'error');
+                    throw new Error(errMsg);
+                }
+
+                addDiagnosticLog(`✅ [Client] DB wipe succeeded: ${data.billsCleared} bills, ${data.ordersCleared} orders, ${data.paymentsCleared} payments removed from POS.`, 'success');
+                alert(`✅ Bills Cleared!\n\nBills Removed: ${data.billsCleared}\nOrders Removed: ${data.ordersCleared}\nPayments Removed: ${data.paymentsCleared}\n\nRestaurant: "${name}"`);
+
+                // Refresh bills list
+                loadRestaurantBills();
+
+            } catch (e) {
+                alert(`❌ Wipe Bills Failed: ${e.message}`);
+            }
+        }
+
+        // =====================================================================
+        // 🪄 AI RESTAURANT PROFILE AUTO-FILL HANDLERS
+        // =====================================================================
+        function toggleBridgeAiProfile(forceOpen) {
+            try {
+                const container = document.getElementById('bridgeAiProfileContainer');
+                const btn = document.getElementById('aiProfileBtn');
+                if (!container) return;
+                
+                const isHidden = container.classList.contains('hidden');
+                const shouldOpen = (forceOpen === true) ? true : (forceOpen === false) ? false : isHidden;
+
+                if (shouldOpen) {
+                    toggleBridgeBills(false); // Close bills panel
+                    toggleBridgeOcr(false); // Close OCR panel
+                    container.classList.remove('hidden');
+                    if (btn) btn.classList.add('bg-purple-500', 'text-black');
+                    if (container.scrollIntoView) {
+                        container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                } else {
+                    container.classList.add('hidden');
+                    if (btn) btn.classList.remove('bg-purple-500', 'text-black');
+                }
+            } catch (err) {
+                console.error("Error toggling AI Profile panel:", err);
+            }
+        }
+
+        function triggerAiProfileAutoFill(e) {
+            if (e) e.stopPropagation();
+            const input = document.getElementById('aiProfileFileInput');
+            if (input) input.click();
+        }
+
+        function handleAiProfileDragOver(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleBridgeAiProfile(true); // Open panel instantly to stream drop/progress feedback!
+            const btn = document.getElementById('aiProfileBtn');
+            if (btn && !btn.disabled) {
+                btn.classList.add('bg-purple-500/30', 'border-purple-400', 'text-purple-300', 'scale-105');
+                btn.classList.remove('bg-purple-500/10', 'border-purple-500/20', 'text-purple-400');
+                if (!btn.dataset.originalHtml) {
+                    btn.dataset.originalHtml = btn.innerHTML;
+                }
+                btn.innerHTML = '🪄 DROP HERE FOR AI';
+            }
+        }
+
+        function handleAiProfileDragLeave(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const btn = document.getElementById('aiProfileBtn');
+            if (btn && !btn.disabled) {
+                btn.classList.remove('bg-purple-500/30', 'border-purple-400', 'text-purple-300', 'scale-105');
+                btn.classList.add('bg-purple-500/10', 'border-purple-500/20', 'text-purple-400');
+                if (btn.dataset.originalHtml) {
+                    btn.innerHTML = btn.dataset.originalHtml;
+                }
+            }
+        }
+
+        function handleAiProfileDrop(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const btn = document.getElementById('aiProfileBtn');
+            if (btn && !btn.disabled) {
+                btn.classList.remove('bg-purple-500/30', 'border-purple-400', 'text-purple-300', 'scale-105');
+                btn.classList.add('bg-purple-500/10', 'border-purple-500/20', 'text-purple-400');
+                if (btn.dataset.originalHtml) {
+                    btn.innerHTML = btn.dataset.originalHtml;
+                }
+            }
+
+            const files = e.dataTransfer.files;
+            if (files && files.length > 0) {
+                const file = files[0];
+                if (file.type.startsWith('image/')) {
+                    uploadAndAutoFillProfile(file);
+                } else {
+                    alert('Please drop an image file for the AI Profile Auto-Fill.');
+                }
+            }
+        }
+
+        function handleAiProfileFileSelected(event) {
+            const files = event.target.files;
+            if (files && files.length > 0) {
+                const file = files[0];
+                uploadAndAutoFillProfile(file);
+            }
+            event.target.value = '';
+        }
+
+        // --- Container Dropzone logic ---
+        function handleBridgeAiProfileDropZoneClick(e) {
+            if (e) e.stopPropagation();
+            const input = document.getElementById('bridgeAiProfileFileInput');
+            if (input) input.click();
+        }
+
+        function handleBridgeAiProfileDragOver(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const zone = document.getElementById('bridgeAiProfileDropZone');
+            if (zone) {
+                zone.classList.add('border-purple-500', 'bg-purple-500/[0.04]', 'scale-[1.02]');
+                zone.classList.remove('border-white/10');
+            }
+        }
+
+        function handleBridgeAiProfileDragLeave(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const zone = document.getElementById('bridgeAiProfileDropZone');
+            if (zone) {
+                zone.classList.remove('border-purple-500', 'bg-purple-500/[0.04]', 'scale-[1.02]');
+                zone.classList.add('border-white/10');
+            }
+        }
+
+        function handleBridgeAiProfileDrop(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const zone = document.getElementById('bridgeAiProfileDropZone');
+            if (zone) {
+                zone.classList.remove('border-purple-500', 'bg-purple-500/[0.04]', 'scale-[1.02]');
+                zone.classList.add('border-white/10');
+            }
+            const files = e.dataTransfer.files;
+            if (files && files.length > 0) {
+                const file = files[0];
+                if (file.type.startsWith('image/')) {
+                    uploadAndAutoFillProfile(file);
+                } else {
+                    alert('Please drop an image file for the AI Profile Auto-Fill.');
+                }
+            }
+        }
+
+        function handleBridgeAiProfileFileSelected(e) {
+            const files = e.target.files;
+            if (files && files.length > 0) {
+                const file = files[0];
+                uploadAndAutoFillProfile(file);
+            }
+            e.target.value = '';
+        }
+
+        function resetAiProfilePanelState(e) {
+            if (e) e.stopPropagation();
+            document.getElementById('bridgeAiProfileUploadPrompt').classList.remove('hidden');
+            document.getElementById('bridgeAiProfileUploadingState').classList.add('hidden');
+            document.getElementById('bridgeAiProfileSuccessState').classList.add('hidden');
+            document.getElementById('bridgeAiProfileLogs').innerHTML = '<div class="text-white/30 italic">Ready. Drop another image of restaurant details to begin.</div>';
+        }
+
+        function appendAiProfileLog(msg, type = 'info') {
+            const list = document.getElementById('bridgeAiProfileLogs');
+            if (!list) return;
+            
+            // If it's a new log block and there's a placeholder, clear it
+            if (list.querySelector('.italic')) {
+                list.innerHTML = '';
+            }
+
+            const div = document.createElement('div');
+            const time = new Date().toLocaleTimeString();
+
+            if (type === 'error') {
+                div.className = 'text-rose-400 font-bold';
+                div.innerHTML = `[${time}] 🚨 ${msg}`;
+            } else if (type === 'success') {
+                div.className = 'text-purple-400 font-bold';
+                div.innerHTML = `[${time}] 🔮 ${msg}`;
+            } else if (type === 'warning') {
+                div.className = 'text-amber-400';
+                div.innerHTML = `[${time}] ⚡ ${msg}`;
+            } else {
+                div.className = 'text-white/60';
+                div.innerHTML = `[${time}] 📡 ${msg}`;
+            }
+
+            list.appendChild(div);
+            list.scrollTop = list.scrollHeight;
+        }
+
+        async function uploadAndAutoFillProfile(file) {
+            if (!currentUserId) {
+                alert('No restaurant selected to auto-fill a profile for.');
+                return;
+            }
+
+            // 1. Ensure the beautiful panel is open
+            toggleBridgeAiProfile(true);
+
+            // 2. Switch panel elements to Uploading state
+            const promptEl = document.getElementById('bridgeAiProfileUploadPrompt');
+            const uploadingEl = document.getElementById('bridgeAiProfileUploadingState');
+            const successEl = document.getElementById('bridgeAiProfileSuccessState');
+            const logsEl = document.getElementById('bridgeAiProfileLogs');
+
+            if (promptEl) promptEl.classList.add('hidden');
+            if (successEl) successEl.classList.add('hidden');
+            if (uploadingEl) uploadingEl.classList.remove('hidden');
+            if (logsEl) {
+                // Keep existing list but clean if it had placeholder
+                if (logsEl.querySelector('.italic')) {
+                    logsEl.innerHTML = '';
+                }
+            }
+
+            const btn = document.getElementById('aiProfileBtn');
+            const originalText = btn ? btn.innerHTML : '🪄 AI PROFILE AUTO-FILL';
+
+            if (btn) {
+                btn.innerHTML = '🪄 AI EXTRACTING...';
+                btn.disabled = true;
+                btn.classList.add('animate-pulse', 'text-purple-300');
+            }
+
+            appendAiProfileLog(`Starting multimodal extraction for restaurant details from image "${file.name}"...`, 'info');
+            addDiagnosticLog(`📡 [AI Auto-Fill] Starting multimodal extraction for restaurant details from image "${file.name}"...`, 'info');
+
+            const formData = new FormData();
+            formData.append('profileImage', file);
+            formData.append('clerkId', currentUserId);
+
+            try {
+                appendAiProfileLog(`Sending request to Multimodal Gemini 2.0 AI...`, 'warning');
+                const res = await fetch('/api/merchant/profile/auto-fill', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await res.json();
+                if (!res.ok) {
+                    throw new Error(data.error || 'Failed to auto-fill profile details.');
+                }
+
+                appendAiProfileLog(`Multimodal Extraction Succeeded!`, 'success');
+                appendAiProfileLog(`Business Name: "${data.profile.businessName}"`, 'success');
+                appendAiProfileLog(`Address: "${data.profile.businessAddress}"`, 'success');
+                appendAiProfileLog(`Phone: "${data.profile.contactPersonPhone}"`, 'success');
+                appendAiProfileLog(`Timings: "${data.profile.openingTime} - ${data.profile.closingTime}"`, 'success');
+                if (data.profile.businessEmail) {
+                    appendAiProfileLog(`Email: "${data.profile.businessEmail}"`, 'success');
+                }
+                appendAiProfileLog(`Photo synced to Cloudinary folder "restaurant-profiles"`, 'success');
+                appendAiProfileLog(`Successfully updated POS MongoDB database!`, 'success');
+
+                // Write also to global logs
+                addDiagnosticLog(`✅ [AI Auto-Fill] Multimodal Extraction Succeeded!`, 'success');
+                addDiagnosticLog(`🏢 [AI Auto-Fill] Business Name: "${data.profile.businessName}"`, 'success');
+                addDiagnosticLog(`📍 [AI Auto-Fill] Address: "${data.profile.businessAddress}"`, 'success');
+                addDiagnosticLog(`📞 [AI Auto-Fill] Phone: "${data.profile.contactPersonPhone}"`, 'success');
+                addDiagnosticLog(`⏰ [AI Auto-Fill] Timings: "${data.profile.openingTime} - ${data.profile.closingTime}"`, 'success');
+                if (data.profile.businessEmail) {
+                    addDiagnosticLog(`📧 [AI Auto-Fill] Email: "${data.profile.businessEmail}"`, 'success');
+                }
+
+                // Update selected resto UI header name dynamically
+                const nameHeader = document.getElementById('selectedRestoName');
+                if (nameHeader && data.profile.businessName) {
+                    nameHeader.innerText = data.profile.businessName;
+                }
+
+                // Render Success State details inside container
+                document.getElementById('successResName').innerText = data.profile.businessName || '---';
+                document.getElementById('successResPhone').innerText = data.profile.contactPersonPhone || '---';
+                document.getElementById('successResTimings').innerText = `${data.profile.openingTime} - ${data.profile.closingTime}`;
+                document.getElementById('successResAddress').innerText = data.profile.businessAddress || '---';
+                
+                const successImg = document.getElementById('bridgeAiProfileSuccessImg');
+                if (successImg && data.profile.profileImageUrl) {
+                    successImg.src = data.profile.profileImageUrl;
+                }
+
+                // Transition UI state
+                if (uploadingEl) uploadingEl.classList.add('hidden');
+                if (successEl) successEl.classList.remove('hidden');
+
+            } catch (e) {
+                appendAiProfileLog(`AI Extraction Crash: ${e.message}`, 'error');
+                addDiagnosticLog(`❌ [AI Auto-Fill] AI Extraction Crash: ${e.message}`, 'error');
+                
+                // Return to prompt state so user can try again
+                if (uploadingEl) uploadingEl.classList.add('hidden');
+                if (promptEl) promptEl.classList.remove('hidden');
+
+                alert(`❌ AI Auto-Fill Failed: ${e.message}`);
+            } finally {
+                if (btn) {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                    btn.classList.remove('animate-pulse', 'text-purple-300');
+                }
+            }
+        }
+
+        // =====================================================================
+        // 🖼️ MERCHANT LOGO UPLOAD & DRAG/DROP HANDLERS
+        // =====================================================================
+        function triggerLogoSelect(e) {
+            if (e) e.stopPropagation();
+            const input = document.getElementById('logoFileInput');
+            if (input) input.click();
+        }
+
+        function handleLogoDragOver(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const zone = document.getElementById('logoDropZone');
+            if (zone) {
+                zone.classList.add('border-orange-500', 'bg-orange-500/[0.04]');
+                zone.classList.remove('border-white/10');
+            }
+        }
+
+        function handleLogoDragLeave(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const zone = document.getElementById('logoDropZone');
+            if (zone) {
+                zone.classList.remove('border-orange-500', 'bg-orange-500/[0.04]');
+                zone.classList.add('border-white/10');
+            }
+        }
+
+        function handleLogoDrop(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const zone = document.getElementById('logoDropZone');
+            if (zone) {
+                zone.classList.remove('border-orange-500', 'bg-orange-500/[0.04]');
+                zone.classList.add('border-white/10');
+            }
+
+            const files = e.dataTransfer.files;
+            if (files && files.length > 0) {
+                const file = files[0];
+                if (file.type.startsWith('image/')) {
+                    uploadLogo(file);
+                } else {
+                    alert('Please drop a valid image file for the logo.');
+                }
+            }
+        }
+
+        function handleLogoFileSelected(event) {
+            const files = event.target.files;
+            if (files && files.length > 0) {
+                const file = files[0];
+                uploadLogo(file);
+            }
+            event.target.value = '';
+        }
+
+        async function uploadLogo(file) {
+            if (!currentUserId) {
+                alert('No restaurant selected to upload a logo for.');
+                return;
+            }
+
+            const emptyState = document.getElementById('logoEmptyState');
+            const previewImage = document.getElementById('logoPreviewImage');
+            const uploadingSpinner = document.getElementById('logoUploadingSpinner');
+            const deleteBtn = document.getElementById('logoDeleteBtn');
+
+            if (!emptyState || !previewImage || !uploadingSpinner || !deleteBtn) return;
+
+            // Set UI uploading state
+            uploadingSpinner.classList.remove('hidden');
+            addDiagnosticLog(`📤 [Client] Uploading logo image "${file.name}" for restaurant "${currentUserId}"...`, 'info');
+
+            const formData = new FormData();
+            formData.append('logo', file);
+            formData.append('clerkId', currentUserId);
+
+            try {
+                const res = await fetch('/api/merchant/profile/logo', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await res.json();
+                if (!res.ok) {
+                    throw new Error(data.error || 'Failed to upload logo.');
+                }
+
+                addDiagnosticLog(`✅ [Client] Logo uploaded successfully: ${data.logoUrl}`, 'success');
+
+                // Update UI image
+                previewImage.src = data.logoUrl;
+                previewImage.classList.remove('hidden');
+                emptyState.classList.add('hidden');
+                deleteBtn.classList.remove('hidden');
+            } catch (e) {
+                addDiagnosticLog(`❌ [Client] Logo upload failed: ${e.message}`, 'error');
+                alert(`❌ Logo upload failed: ${e.message}`);
+            } finally {
+                uploadingSpinner.classList.add('hidden');
+            }
+        }
+
+        async function deleteLogo(e) {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+
+            if (!currentUserId) return alert('No restaurant selected.');
+            const name = document.getElementById('selectedRestoName').innerText;
+
+            const confirmed = confirm(`🗑️ DELETE LOGO WARNING\n\nAre you sure you want to delete the logo for "${name}"?\n\nThis will remove the logo from the database permanently.`);
+            if (!confirmed) return;
+
+            const emptyState = document.getElementById('logoEmptyState');
+            const previewImage = document.getElementById('logoPreviewImage');
+            const deleteBtn = document.getElementById('logoDeleteBtn');
+            const uploadingSpinner = document.getElementById('logoUploadingSpinner');
+
+            if (!emptyState || !previewImage || !deleteBtn || !uploadingSpinner) return;
+
+            uploadingSpinner.classList.remove('hidden');
+            addDiagnosticLog(`🗑️ [Client] Deleting logo for restaurant "${currentUserId}"...`, 'info');
+
+            try {
+                const res = await fetch('/api/merchant/profile/logo', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ clerkId: currentUserId })
+                });
+
+                const data = await res.json();
+                if (!res.ok) {
+                    throw new Error(data.error || 'Failed to delete logo.');
+                }
+
+                addDiagnosticLog(`✅ [Client] Logo deleted successfully from database.`, 'success');
+
+                // Reset UI
+                previewImage.src = '';
+                previewImage.classList.add('hidden');
+                emptyState.classList.remove('hidden');
+                deleteBtn.classList.add('hidden');
+            } catch (e) {
+                addDiagnosticLog(`❌ [Client] Logo deletion failed: ${e.message}`, 'error');
+                alert(`❌ Logo deletion failed: ${e.message}`);
+            } finally {
+                uploadingSpinner.classList.add('hidden');
+            }
+        }
+
+        // =====================================================================
+        // 📂 BRIDGE: FILE SELECTION & DRAG/DROP HANDLING
+        // =====================================================================
+        let selectedBridgeFiles = [];
+        let bridgeMenuItems = [];
+
+        function handleBridgeDropZoneClick(event) {
+            if (selectedBridgeFiles.length === 0) {
+                document.getElementById('bridgeFileInput').click();
+            }
+        }
+
+        function triggerBridgeFileSelect(e) {
+            if (e) e.stopPropagation();
+            document.getElementById('bridgeFileInput').click();
+        }
+
+        function handleBridgeFileSelected(event) {
+            const files = event.target.files;
+            if (files && files.length > 0) {
+                for (let i = 0; i < files.length; i++) selectedBridgeFiles.push(files[i]);
+                renderBridgePendingFiles();
+            }
+            event.target.value = '';
+        }
+
+        function handleBridgeDragOver(e) {
+            e.preventDefault();
+            const zone = e.currentTarget;
+            zone.classList.add('border-orange-500', 'bg-orange-500/[0.04]');
+            zone.classList.remove('border-white/10');
+        }
+
+        function handleBridgeDragLeave(e) {
+            e.preventDefault();
+            const zone = e.currentTarget;
+            zone.classList.remove('border-orange-500', 'bg-orange-500/[0.04]');
+            zone.classList.add('border-white/10');
+        }
+
+        function handleBridgeDrop(e) {
+            e.preventDefault();
+            const zone = e.currentTarget;
+            zone.classList.remove('border-orange-500', 'bg-orange-500/[0.04]');
+            zone.classList.add('border-white/10');
+            const files = e.dataTransfer.files;
+            if (files && files.length > 0) {
+                for (let i = 0; i < files.length; i++) selectedBridgeFiles.push(files[i]);
+                renderBridgePendingFiles();
+            }
+        }
+
+        function removeBridgePendingFile(index, e) {
+            if (e) e.stopPropagation();
+            selectedBridgeFiles.splice(index, 1);
+            renderBridgePendingFiles();
+        }
+
+        function renderBridgePendingFiles() {
+            const promptState = document.getElementById('bridgeUploadPrompt');
+            const selectedState = document.getElementById('bridgeFilesSelectedState');
+            const pendingList = document.getElementById('bridgePendingList');
+            const countText = document.getElementById('bridgePendingCount');
+
+            if (selectedBridgeFiles.length === 0) {
+                promptState.classList.remove('hidden');
+                selectedState.classList.add('hidden');
+                return;
+            }
+            promptState.classList.add('hidden');
+            selectedState.classList.remove('hidden');
+            countText.innerText = `${selectedBridgeFiles.length} file(s) selected`;
+            pendingList.innerHTML = '';
+            selectedBridgeFiles.forEach((file, index) => {
+                const isPdf = file.name.toLowerCase().endsWith('.pdf');
+                const chip = document.createElement('div');
+                chip.className = 'flex items-center gap-3 px-4 py-2 bg-white/[0.03] border border-white/5 hover:border-white/10 rounded-xl text-xs font-semibold text-white/90 shadow-md transition-all select-none';
+                chip.innerHTML = `
+                    <span class="text-sm">${isPdf ? '📕' : '📸'}</span>
+                    <span class="truncate max-w-[130px] font-medium" title="${file.name}">${file.name}</span>
+                    <span class="text-[9px] text-white/30 font-bold uppercase tracking-wider">${(file.size / 1024 / 1024).toFixed(2)} MB</span>
+                    <button onclick="removeBridgePendingFile(${index}, event)" class="text-white/30 hover:text-rose-400 font-bold ml-1 transition-colors text-[10px] p-0.5 focus:outline-none">❌</button>
+                `;
+                pendingList.appendChild(chip);
+            });
+        }
+
+        // =====================================================================
+        // ⚡ BRIDGE: AI OCR EXTRACTION PIPELINE
+        // =====================================================================
+        function appendBridgeLog(text, type = 'info') {
+            const list = document.getElementById('bridgeLogsList');
+            if (!list) return;
+            const colors = { info: 'text-white/60', success: 'text-emerald-400', error: 'text-red-400', warning: 'text-orange-400' };
+            const div = document.createElement('div');
+            div.className = `${colors[type] || 'text-white/60'} leading-relaxed`;
+            div.innerText = `[${new Date().toLocaleTimeString()}] ${text}`;
+            list.appendChild(div);
+            list.scrollTop = list.scrollHeight;
+        }
+
+        async function startBridgeExtraction(e) {
+            if (e) e.stopPropagation();
+            if (selectedBridgeFiles.length === 0) return;
+
+            if (!currentUserId) {
+                alert('No restaurant selected. Please go back and select a restaurant first.');
+                return;
+            }
+
+            const selectedState = document.getElementById('bridgeFilesSelectedState');
+            const loadingState = document.getElementById('bridgeUploadLoading');
+            const progressStatus = document.getElementById('bridgeProgressStatus');
+
+            selectedState.classList.add('hidden');
+            loadingState.classList.remove('hidden');
+            document.getElementById('bridgeLogsList').innerHTML = '';
+            document.getElementById('bridgeTableContainer').classList.add('hidden');
+
+            appendBridgeLog(`📡 Initializing AI OCR pipeline for ${selectedBridgeFiles.length} file(s)...`);
+            bridgeMenuItems = [];
+
+            for (let i = 0; i < selectedBridgeFiles.length; i++) {
+                const file = selectedBridgeFiles[i];
+                appendBridgeLog(`📁 Processing [${i + 1}/${selectedBridgeFiles.length}]: ${file.name}`, 'info');
+                appendBridgeLog(`⚡ Sending to Gemini AI — translating Hindi → English automatically...`, 'warning');
+                if (progressStatus) progressStatus.innerText = `Processing ${file.name} (${i + 1}/${selectedBridgeFiles.length})...`;
+
+                const formData = new FormData();
+                formData.append('menuFile', file);
+
+                try {
+                    const res = await fetch('/api/menu/upload-ocr', { method: 'POST', body: formData });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error || 'OCR server error.');
+
+                    const extractedItems = data.menu || [];
+                    bridgeMenuItems = bridgeMenuItems.concat(extractedItems);
+
+                    if (data.restaurantName) appendBridgeLog(`🏢 Restaurant Detected: ${data.restaurantName}`, 'success');
+                    appendBridgeLog(`✅ Extracted ${extractedItems.length} items from ${file.name} (Hindi auto-converted to English)`, 'success');
+
+                } catch (err) {
+                    appendBridgeLog(`🚨 OCR Failed for ${file.name}: ${err.message}`, 'error');
+                }
+            }
+
+            loadingState.classList.add('hidden');
+            selectedState.classList.remove('hidden');
+
+            if (bridgeMenuItems.length > 0) {
+                appendBridgeLog(`🏁 EXTRACTION COMPLETE: ${bridgeMenuItems.length} items ready for review.`, 'success');
+                appendBridgeLog(`👆 Review the table below, edit any items, then click DEPLOY & SYNC TO SOFTWARE.`, 'info');
+                document.getElementById('bridgeTableContainer').classList.remove('hidden');
+                renderBridgeTable();
+                document.getElementById('bridgeTableContainer').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } else {
+                appendBridgeLog(`🚨 No items extracted. Try a clearer menu image.`, 'error');
+            }
+
+            selectedBridgeFiles = [];
+            renderBridgePendingFiles();
+        }
+
+        // =====================================================================
+        // 📋 BRIDGE: REVIEW TABLE MANAGEMENT
+        // =====================================================================
+        function renderBridgeTable() {
+            const body = document.getElementById('bridgeTableBody');
+            const badge = document.getElementById('bridgeCountBadge');
+            if (badge) badge.innerText = `${bridgeMenuItems.length} Items Extracted`;
+            body.innerHTML = '';
+
+            bridgeMenuItems.forEach((item, index) => {
+                const isVeg = (item.type === 'Pure Veg' || item.type === 'Veg');
+                const tr = document.createElement('tr');
+                tr.className = 'border-b border-white/5 hover:bg-white/[0.01] transition-all';
+                tr.innerHTML = `
+                    <td class="px-6 py-3">
+                        <input type="text" value="${(item.category || '').replace(/"/g, '&quot;')}" class="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white text-xs w-full min-w-[120px] focus:border-orange-500 focus:outline-none" onchange="updateBridgeItem(${index}, 'category', this.value)" />
+                    </td>
+                    <td class="px-6 py-3">
+                        <input type="text" value="${(item.name || '').replace(/"/g, '&quot;')}" class="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white text-xs w-full min-w-[160px] focus:border-orange-500 focus:outline-none" onchange="updateBridgeItem(${index}, 'name', this.value)" />
+                    </td>
+                    <td class="px-6 py-3" style="width:100px">
+                        <input type="number" value="${item.price || 0}" class="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white text-xs w-full focus:border-orange-500 focus:outline-none" onchange="updateBridgeItem(${index}, 'price', this.value)" />
+                    </td>
+                    <td class="px-6 py-3" style="width:150px">
+                        <select class="bg-[#0f0f11] border border-white/10 rounded-xl px-3 py-2 text-white text-xs w-full focus:border-orange-500 focus:outline-none" onchange="updateBridgeItem(${index}, 'type', this.value)">
+                            <option value="Pure Veg" ${isVeg ? 'selected' : ''}>🟢 Pure Veg</option>
+                            <option value="Non-Veg (Egg)" ${item.type === 'Non-Veg (Egg)' ? 'selected' : ''}>🟡 Egg</option>
+                            <option value="Non-Veg" ${(!isVeg && item.type !== 'Non-Veg (Egg)') ? 'selected' : ''}>🔴 Non-Veg</option>
+                        </select>
+                    </td>
+                    <td class="px-6 py-3">
+                        <input type="text" value="${(item.description || '').replace(/"/g, '&quot;')}" class="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white/70 text-xs w-full min-w-[180px] focus:border-orange-500 focus:outline-none" onchange="updateBridgeItem(${index}, 'description', this.value)" />
+                    </td>
+                    <td class="px-6 py-3 text-center">
+                        <button onclick="removeBridgeRow(${index})" class="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl border border-red-500/20 transition-all">🗑️</button>
+                    </td>
+                `;
+                body.appendChild(tr);
+            });
+        }
+
+        function updateBridgeItem(index, field, value) {
+            if (bridgeMenuItems[index]) bridgeMenuItems[index][field] = value;
+        }
+
+        function removeBridgeRow(index) {
+            bridgeMenuItems.splice(index, 1);
+            renderBridgeTable();
+            appendBridgeLog(`🗑️ Removed 1 item. ${bridgeMenuItems.length} items remaining.`, 'info');
+        }
+
+        function addBridgeRow() {
+            bridgeMenuItems.push({ category: 'General', name: 'New Item', price: 100, type: 'Pure Veg', description: '' });
+            renderBridgeTable();
+            appendBridgeLog(`➕ Added 1 blank row. Edit it in the table above.`, 'info');
+            document.getElementById('bridgeTableContainer').scrollIntoView({ behavior: 'smooth', block: 'end' });
+        }
+
+        // =====================================================================
+        // 💾 BRIDGE: DEPLOY TO KRAVY POS SOFTWARE (Wipe Old + Insert New + Scrape)
+        // =====================================================================
+        async function deployBridgeMenu() {
+            if (!currentUserId) return alert('No restaurant selected.');
+            if (!bridgeMenuItems || bridgeMenuItems.length === 0) return alert('No menu items to deploy. Please run AI OCR first or add items manually.');
+
+            const name = document.getElementById('selectedRestoName').innerText;
+            const confirmed = confirm(`🚀 DEPLOY MENU CONFIRMATION\n\nRestaurant: "${name}"\nItems to Deploy: ${bridgeMenuItems.length}\n\n⚠️ This will:\n1. SAFELY clear the existing menu (only items/categories)\n2. Insert ${bridgeMenuItems.length} new menu items\n3. Auto-queue background image scraper for all items\n\nUser accounts & business profiles stay untouched.\n\nProceed?`);
+            if (!confirmed) return;
+
+            appendBridgeLog(`🚀 Starting deployment of ${bridgeMenuItems.length} items to Kravy POS...`, 'warning');
+
+            const deployBtn = document.querySelector('button[onclick="deployBridgeMenu()"]');
+            if (deployBtn) { deployBtn.disabled = true; deployBtn.innerText = '⏳ Deploying...'; }
+
+            try {
+                const res = await fetch('/api/merchant/update-menu', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ clerkId: currentUserId, menu: bridgeMenuItems })
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error || 'Deployment failed.');
+
+                appendBridgeLog(`✅ SUCCESS! ${data.itemsSynced} items deployed to Kravy POS!`, 'success');
+                appendBridgeLog(`📦 Categories Created: ${data.categoriesSynced}`, 'success');
+                appendBridgeLog(`🖼️ Image scraper queued — premium food images will auto-update in background.`, 'info');
+                appendBridgeLog(`🎉 Done! Check the menu below for live status.`, 'success');
+
+                alert(`🎉 MENU DEPLOYED SUCCESSFULLY!\n\nRestaurant: "${name}"\nItems Synced: ${data.itemsSynced}\nCategories: ${data.categoriesSynced}\n\n🖼️ High-quality food images are being scraped & uploaded in the background.\nRefresh after a few minutes to see them live!`);
+
+                // Hide OCR panel, refresh menu
+                toggleBridgeOcr(false);
+                bridgeMenuItems = [];
+                await selectRestaurant(currentUserId, name);
+
+            } catch (e) {
+                appendBridgeLog(`🚨 Deployment Failed: ${e.message}`, 'error');
+                alert(`❌ Deployment Failed:\n${e.message}`);
+            } finally {
+                if (deployBtn) { deployBtn.disabled = false; deployBtn.innerText = '💾 DEPLOY & SYNC TO SOFTWARE'; }
+            }
+        }
     </script>
 </body>
 </html>

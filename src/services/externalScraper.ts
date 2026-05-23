@@ -3,6 +3,9 @@ import pLimit from "p-limit";
 import { prisma } from "../db/index.js";
 import { scrapeAndSaveFood } from "../index.js";
 import { delay } from "../scraper/utils.js";
+import fs from "fs";
+import dotenv from "dotenv";
+import { MongoClient } from "mongodb";
 
 const EXTERNAL_BASE = process.env.EXTERNAL_API_BASE || "https://billing.kravy.in/api/external";
 const SECRET_KEY = process.env.SCRAPER_SECRET_KEY || "kravy_scraper_secret_2026";
@@ -21,11 +24,29 @@ export async function scrapeAndUpdateExternalMenu(userId: string, jobId?: string
 
   const limit = pLimit(8); // 👈 8 Items in Parallel (Optimized for Local + Browser Reuse)
 
+  // 1. Check POS DB dynamic connection path
+  const websiteEnvPath = '/Users/vikas/Desktop/kravy-pos-website/.env';
+  let dbUrl = "";
+  let isMongoSync = false;
+
+  if (fs.existsSync(websiteEnvPath)) {
+      try {
+          const envContent = fs.readFileSync(websiteEnvPath, 'utf8');
+          const envConfig = dotenv.parse(envContent);
+          dbUrl = envConfig.DATABASE_URL || "";
+          if (dbUrl) {
+              isMongoSync = true;
+          }
+      } catch (err: any) {
+          console.error(`⚠️ [Bridge env load] Failed: ${err.message}`);
+      }
+  }
+
   try {
     // 1. Fetch Menu Items (Check if Local Restaurant or External User)
     let items: any[] = [];
     const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(userId);
-    console.log(`🔍 [Bridge] Validating ID: "${userId}" -> isValid: ${isValidObjectId}`);
+    console.log(`🔍 [Bridge] Validating ID: "${userId}" -> isValidObjectId: ${isValidObjectId}, isMongoSync: ${isMongoSync}`);
     
     let localResto: any = null;
     if (isValidObjectId) {
@@ -40,7 +61,30 @@ export async function scrapeAndUpdateExternalMenu(userId: string, jobId?: string
         items = await prisma.menuItem.findMany({ 
             where: { restaurantId: userId } 
         });
-    } else {
+    } else if (isMongoSync) {
+        console.log(`🔌 [Bridge] Connecting directly to local POS MongoDB...`);
+        const mongoClient = new MongoClient(dbUrl);
+        await mongoClient.connect();
+        const db = mongoClient.db();
+        const itemCollection = db.collection('Item');
+        
+        // Find items in local POS MongoDB by clerkId
+        const mongoItems = await itemCollection.find({ clerkId: userId }).toArray();
+        await mongoClient.close();
+
+        if (mongoItems.length > 0) {
+            console.log(`✅ [Bridge] Found ${mongoItems.length} items in POS MongoDB for clerkId: ${userId}`);
+            items = mongoItems.map(mi => ({
+                id: mi._id.toString(),
+                name: mi.name,
+                category: { name: mi.categoryName || 'General' },
+                image: mi.image || mi.imageUrl || null
+            }));
+        }
+    }
+
+    // Fallback if still empty
+    if (items.length === 0 && !localResto) {
         console.log(`🌍 BRIDGE SYSTEM: Fetching missing assets from Billing for [${userId}]...`);
         const res = await axios.get(`${EXTERNAL_BASE}/menu/${userId}`, { headers, timeout: 30000 });
         
@@ -95,16 +139,36 @@ export async function scrapeAndUpdateExternalMenu(userId: string, jobId?: string
 
                 if (record && record.cloudinaryUrl) {
                     // ✅ Apply the same image to ALL variants (Full, Half, etc.)
-                    await Promise.all(variants.map(async (v) => {
-                        try {
-                            const res = await axios.patch(`${EXTERNAL_BASE}/menu/update/${v.id}`, { 
-                                imageUrl: record.cloudinaryUrl 
-                            }, { headers, timeout: 10000 });
-                            console.log(`✅ [Bridge] Update Success: ${v.name} -> ${record.cloudinaryUrl}`);
-                        } catch (e: any) {
-                            console.error(`⚠️ [Bridge] Update Failed for variant ${v.name} (${v.id}): ${e.message}`);
-                        }
-                    }));
+                    if (isMongoSync && !localResto) {
+                        const mongoClient = new MongoClient(dbUrl);
+                        await mongoClient.connect();
+                        const db = mongoClient.db();
+                        const itemCollection = db.collection('Item');
+                        
+                        await Promise.all(variants.map(async (v) => {
+                            try {
+                                await itemCollection.updateMany(
+                                    { name: v.name, clerkId: userId },
+                                    { $set: { imageUrl: record.cloudinaryUrl, image: record.cloudinaryUrl } }
+                                );
+                                console.log(`✅ [POS MongoDB Bridge] Update Success: ${v.name} -> ${record.cloudinaryUrl}`);
+                            } catch (e: any) {
+                                console.error(`⚠️ [POS MongoDB Bridge] Update Failed for variant ${v.name}: ${e.message}`);
+                            }
+                        }));
+                        await mongoClient.close();
+                    } else {
+                        await Promise.all(variants.map(async (v) => {
+                            try {
+                                const res = await axios.patch(`${EXTERNAL_BASE}/menu/update/${v.id}`, { 
+                                    imageUrl: record.cloudinaryUrl 
+                                }, { headers, timeout: 10000 });
+                                console.log(`✅ [Bridge] Update Success: ${v.name} -> ${record.cloudinaryUrl}`);
+                            } catch (e: any) {
+                                console.error(`⚠️ [Bridge] Update Failed for variant ${v.name} (${v.id}): ${e.message}`);
+                            }
+                        }));
+                    }
                     successCount += variants.length;
                 }
             } catch (err: any) {

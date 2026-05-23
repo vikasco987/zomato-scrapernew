@@ -21,6 +21,8 @@
   "type": "module",
   "devDependencies": {
     "@prisma/client": "^6.4.1",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/exceljs": "^0.5.3",
     "@types/fs-extra": "^11.0.4",
     "@types/node": "^25.5.0",
     "@types/node-cron": "^3.0.11",
@@ -40,13 +42,16 @@
     "@types/express": "^5.0.6",
     "@types/multer": "^2.1.0",
     "@types/socket.io-client": "^1.4.36",
+    "bcryptjs": "^3.0.3",
     "better-sqlite3": "^12.8.0",
     "cloudinary": "^2.9.0",
     "concurrently": "^9.2.1",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
+    "exceljs": "^4.4.0",
     "express": "^5.2.1",
     "fs-extra": "^11.3.4",
+    "mongodb": "^7.2.0",
     "multer": "^2.1.1",
     "node-cron": "^4.2.1",
     "openai": "^4.20.1",
@@ -58,7 +63,8 @@
     "puppeteer-extra-plugin-stealth": "^2.11.2",
     "random-useragent": "^0.5.0",
     "sharp": "^0.34.5",
-    "socket.io": "^4.8.3"
+    "socket.io": "^4.8.3",
+    "xlsx": "^0.18.5"
   },
   "build": {
     "appId": "com.kravy.aiscraper",
