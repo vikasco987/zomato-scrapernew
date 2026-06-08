@@ -29,7 +29,8 @@ const httpServer = createServer(app);
 const io = initSocket(httpServer);
 
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(express.static(path.join(__dirname, "../public")));
 
 // --- CLOUDINARY CONFIG ---
@@ -56,10 +57,36 @@ app.get("/api/external-users", async (req, res) => {
     const users = await response.json();
     
     // Normalize users to ensure they have an 'id' that the frontend can use
-    const normalizedUsers = users.map((u: any) => ({
+    let normalizedUsers = users.map((u: any) => ({
         ...u,
         id: u.id || u.clerkId || (u._id?.$oid) || u._id
     }));
+
+    try {
+        // Hot-wire: Fetch emails and phones directly from the POS database
+        const mongodb = await import('mongodb');
+        const MongoClient = mongodb.MongoClient;
+        const dotenv = await import('dotenv');
+        dotenv.config({ path: '/Users/vikas/.gemini/antigravity-ide/scratch/kravy-pos-website/.env', override: true });
+        const posDbUrl = process.env.DATABASE_URL as string;
+        const client = new MongoClient(posDbUrl);
+        await client.connect();
+        const db = client.db();
+        const allUsers = await db.collection('User').find({}).toArray();
+        const userMap = new Map(allUsers.filter((u: any) => u.clerkId).map((u: any) => [u.clerkId, u]));
+        
+        normalizedUsers = normalizedUsers.map((u: any) => {
+            const match = userMap.get(u.id) as any;
+            return {
+                ...u,
+                email: match?.email || u.email || '',
+                phone: match?.phone || u.phone || ''
+            };
+        });
+        await client.close();
+    } catch (dbErr) {
+        console.error("Failed to hot-wire POS DB for emails:", dbErr);
+    }
     
     console.log(`🌉 [Bridge] Fetched ${normalizedUsers.length} external users.`);
     const shepabi = normalizedUsers.find((u: any) => (u.name || "").includes("SHEPABI"));
@@ -524,8 +551,8 @@ app.post("/api/menu/upload-ocr", upload.single("menuFile"), async (req, res) => 
 
         // Fallback models to try in case of 503 or 429 quota limits
         const modelsToTry = [
-            "gemini-2.0-flash",
             "gemini-2.5-flash",
+            "gemini-2.0-flash",
             "gemini-2.5-flash-lite",
             "gemini-2.0-flash-lite",
             "gemini-3.5-flash"
@@ -550,7 +577,7 @@ Please return a structured JSON response matching the following structure:
   "menu": [
     {
       "category": "Logical Category Name (e.g. Dal & Lentils, Paneer Items, Rice, Roti & Parantha, Veg Specials, Egg Specials, Chicken Specials, Breads, Raita, Desserts, Beverages)",
-      "name": "Formatted Item Name, e.g. 'Paneer Tikka (V) (F)' or 'Butter Chicken (NV) (H)'. ALWAYS add the (V) or (NV) badge after the dish name, followed by its size code in brackets: (H) Half, (M) Medium, (F) Full, (R) Regular, (L) Large.",
+      "name": "Formatted Item Name, e.g. 'Paneer Tikka (V) (F)'. ALWAYS add the (V) or (NV) badge. CRUCIAL RULE: If the item has different sizes (like Regular, Medium, Large, Half, Full), you MUST append the size suffix inside brackets AT THE END OF THE NAME for EVERY size variant! For example: 'Margherita (V) (R)', 'Margherita (V) (M)', 'Margherita (V) (L)'. Each size MUST have its own row with its specific price.",
       "price": 250, // Extract the price as a number. Crucial: If one item has multiple sizes/prices (e.g. Half 150 / Full 280), you MUST create a SEPARATE row for each size in this list.
       "type": "Pure Veg", // Veg items MUST be 'Pure Veg'. Chicken/mutton/fish/meat MUST be 'Non-Veg'. Egg items MUST be 'Non-Veg (Egg)'.
       "description": "A unique, highly attractive, gourmet 1-line description for this individual row. Crucial: Every single row must have a completely unique description. No two descriptions must be identical, even for different sizes of the same dish!"
@@ -592,6 +619,10 @@ Strictly follow these rules:
                     generationConfig: {
                         responseMimeType: "application/json"
                     }
+                }, {
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
                 });
 
                 textResponse = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -615,14 +646,95 @@ Strictly follow these rules:
 
         // Parse returned JSON from Gemini
         const parsedMenu = JSON.parse(textResponse);
-        console.log(`✅ [Menu AI OCR Engine] Extracted ${parsedMenu.menu?.length || 0} items successfully for ${parsedMenu.restaurantName} using model ${selectedModel}!`);
+        let menuItems: any[] = parsedMenu.menu || [];
+        
+        // --- Post-Processing: Smart Merge Sizes & Portions ---
+        let lastNormalItem: any = null;
+        let cleanedMenu: any[] = [];
+        const modifierRegex = /^(\d+\/-\s*[a-zA-Z]*|\d+\s*(Pc|pcs|gm|kg).*)$/i;
+
+        for (let i = 0; i < menuItems.length; i++) {
+            let item = menuItems[i];
+            let name = (item.name || "").trim();
+
+            if (modifierRegex.test(name) && lastNormalItem) {
+                let baseName = lastNormalItem.name.replace(/\s*\(Half\)$/, '');
+                
+                if (name.toLowerCase().includes('f') || name.includes('/-')) {
+                    item.name = `${baseName} (Full)`;
+                    if (!lastNormalItem.name.includes('(Half)')) {
+                        lastNormalItem.name = `${baseName} (Half)`;
+                    }
+                } else {
+                    item.name = `${baseName} (${name})`;
+                }
+                
+                if (item.price === lastNormalItem.price && (name.toLowerCase().includes('1 pc') || name.toLowerCase().includes('1pc'))) {
+                    // It's a duplicate of the base item, skip adding it
+                    continue;
+                }
+            } else {
+                lastNormalItem = item;
+            }
+            cleanedMenu.push(item);
+        }
+
+        // --- Post-Processing: Group & Enforce Portions ---
+        const groups: { [key: string]: any[] } = {};
+        for (let item of cleanedMenu) {
+            let baseName = item.name.split('(')[0].trim();
+            if (!groups[baseName]) groups[baseName] = [];
+            groups[baseName].push(item);
+        }
+
+        let finalMenu: any[] = [];
+        for (let baseName in groups) {
+            let groupItems = groups[baseName];
+            
+            // Remove exact duplicates where one has a bracket and other doesn't
+            let toRemove = new Set();
+            for (let i = 0; i < groupItems.length; i++) {
+                for (let j = i + 1; j < groupItems.length; j++) {
+                    let item1 = groupItems[i];
+                    let item2 = groupItems[j];
+                    if (item1.price === item2.price) {
+                        if (item1.name.includes('(') && !item2.name.includes('(')) toRemove.add(item2);
+                        else if (!item1.name.includes('(') && item2.name.includes('(')) toRemove.add(item1);
+                    }
+                }
+            }
+            
+            let activeItems = groupItems.filter((i: any) => !toRemove.has(i));
+            
+            if (activeItems.length > 1) {
+                let itemsWithoutBrackets = activeItems.filter((i: any) => !i.name.includes('('));
+                
+                if (itemsWithoutBrackets.length === 2) {
+                    itemsWithoutBrackets.sort((a: any, b: any) => a.price - b.price);
+                    itemsWithoutBrackets[0].name = `${itemsWithoutBrackets[0].name} (Half)`;
+                    itemsWithoutBrackets[1].name = `${itemsWithoutBrackets[1].name} (Full)`;
+                } else if (itemsWithoutBrackets.length === 3) {
+                    itemsWithoutBrackets.sort((a: any, b: any) => a.price - b.price);
+                    itemsWithoutBrackets[0].name = `${itemsWithoutBrackets[0].name} (Small)`;
+                    itemsWithoutBrackets[1].name = `${itemsWithoutBrackets[1].name} (Medium)`;
+                    itemsWithoutBrackets[2].name = `${itemsWithoutBrackets[2].name} (Large)`;
+                } else {
+                    for (let item of itemsWithoutBrackets) {
+                        item.name = `${item.name} (Regular)`;
+                    }
+                }
+            }
+            finalMenu.push(...activeItems);
+        }
+
+        console.log(`✅ [Menu AI OCR Engine] Extracted ${finalMenu.length} items successfully for ${parsedMenu.restaurantName} using model ${selectedModel}!`);
         res.json({ 
             success: true, 
             restaurantName: parsedMenu.restaurantName || "AI Scraped Restaurant",
             address: parsedMenu.address || "Delhi NCR",
             timings: parsedMenu.timings || "11:00 AM - 11:00 PM",
             phone: parsedMenu.phone || "+91 99999 99999",
-            menu: parsedMenu.menu || [] 
+            menu: finalMenu
         });
 
     } catch (e: any) {
@@ -790,7 +902,7 @@ app.post('/api/merchant/onboard', async (req: any, res: any) => {
         }
 
         // 1. Read POS DB connection string dynamically
-        const websiteEnvPath = '/Users/vikas/Desktop/kravy-pos-website/.env';
+        const websiteEnvPath = '/Users/vikas/.gemini/antigravity-ide/scratch/kravy-pos-website/.env';
         if (!fs.existsSync(websiteEnvPath)) {
             return res.status(500).json({ error: `Kravy POS Website .env not found at ${websiteEnvPath}` });
         }
@@ -1068,7 +1180,7 @@ app.post('/api/merchant/clear-menu', async (req: any, res: any) => {
         }
 
         // 1. Read POS DB connection string dynamically
-        const websiteEnvPath = '/Users/vikas/Desktop/kravy-pos-website/.env';
+        const websiteEnvPath = '/Users/vikas/.gemini/antigravity-ide/scratch/kravy-pos-website/.env';
         if (!fs.existsSync(websiteEnvPath)) {
             return res.status(500).json({ error: `Kravy POS Website .env not found at ${websiteEnvPath}` });
         }
@@ -1130,7 +1242,7 @@ app.get('/api/merchant/bills/:clerkId', async (req: any, res: any) => {
         emitUpdate('merchant:log', { message: `⚙️ [Server] Initializing POS connection string check for Merchant ID: ${clerkId}...`, status: 'primary' });
 
         // 1. Read POS DB connection string dynamically
-        const websiteEnvPath = '/Users/vikas/Desktop/kravy-pos-website/.env';
+        const websiteEnvPath = '/Users/vikas/.gemini/antigravity-ide/scratch/kravy-pos-website/.env';
         if (!fs.existsSync(websiteEnvPath)) {
             const err = `Kravy POS Website .env not found at ${websiteEnvPath}`;
             emitUpdate('merchant:log', { message: `❌ [Server] Error: ${err}`, status: 'error' });
@@ -1214,7 +1326,7 @@ app.post('/api/merchant/clear-bills', async (req: any, res: any) => {
         }
 
         // 1. Read POS DB connection string dynamically
-        const websiteEnvPath = '/Users/vikas/Desktop/kravy-pos-website/.env';
+        const websiteEnvPath = '/Users/vikas/.gemini/antigravity-ide/scratch/kravy-pos-website/.env';
         if (!fs.existsSync(websiteEnvPath)) {
             return res.status(500).json({ error: `Kravy POS Website .env not found at ${websiteEnvPath}` });
         }
@@ -1291,7 +1403,7 @@ app.get('/api/merchant/profile/:clerkId', async (req: any, res: any) => {
         }
 
         // 1. Read POS DB connection string dynamically
-        const websiteEnvPath = '/Users/vikas/Desktop/kravy-pos-website/.env';
+        const websiteEnvPath = '/Users/vikas/.gemini/antigravity-ide/scratch/kravy-pos-website/.env';
         if (!fs.existsSync(websiteEnvPath)) {
             return res.status(500).json({ error: `Kravy POS Website .env not found at ${websiteEnvPath}` });
         }
@@ -1355,7 +1467,7 @@ app.post('/api/merchant/profile/logo', upload.single('logo'), async (req: any, r
         }
 
         // 1. Read POS DB connection string dynamically
-        const websiteEnvPath = '/Users/vikas/Desktop/kravy-pos-website/.env';
+        const websiteEnvPath = '/Users/vikas/.gemini/antigravity-ide/scratch/kravy-pos-website/.env';
         if (!fs.existsSync(websiteEnvPath)) {
             return res.status(500).json({ error: `Kravy POS Website .env not found at ${websiteEnvPath}` });
         }
@@ -1431,7 +1543,7 @@ app.delete('/api/merchant/profile/logo', async (req: any, res: any) => {
         }
 
         // 1. Read POS DB connection string dynamically
-        const websiteEnvPath = '/Users/vikas/Desktop/kravy-pos-website/.env';
+        const websiteEnvPath = '/Users/vikas/.gemini/antigravity-ide/scratch/kravy-pos-website/.env';
         if (!fs.existsSync(websiteEnvPath)) {
             return res.status(500).json({ error: `Kravy POS Website .env not found at ${websiteEnvPath}` });
         }
@@ -1504,8 +1616,8 @@ app.post('/api/merchant/profile/auto-fill', upload.single('profileImage'), async
         console.log(`📡 [AI Profile Auto-Fill] Processing uploaded file for clerkId: ${clerkId}...`);
 
         const modelsToTry = [
-            "gemini-2.0-flash",
             "gemini-2.5-flash",
+            "gemini-2.0-flash",
             "gemini-2.5-flash-lite",
             "gemini-2.0-flash-lite",
             "gemini-3.5-flash"
@@ -1565,6 +1677,10 @@ Strictly follow these rules:
                     generationConfig: {
                         responseMimeType: "application/json"
                     }
+                }, {
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
                 });
 
                 textResponse = response.data?.candidates?.[0]?.content?.parts?.[0]?.text;
@@ -1589,7 +1705,7 @@ Strictly follow these rules:
         console.log(`✅ [AI Profile Auto-Fill] Extracted details for ${parsedResult.businessName || 'Merchant'}!`);
 
         // 1. Read POS DB connection string dynamically
-        const websiteEnvPath = '/Users/vikas/Desktop/kravy-pos-website/.env';
+        const websiteEnvPath = '/Users/vikas/.gemini/antigravity-ide/scratch/kravy-pos-website/.env';
         if (!fs.existsSync(websiteEnvPath)) {
             return res.status(500).json({ error: `Kravy POS Website .env not found at ${websiteEnvPath}` });
         }
@@ -1685,7 +1801,7 @@ app.post('/api/merchant/update-menu', async (req: any, res: any) => {
         }
 
         // 1. Read POS DB connection string dynamically
-        const websiteEnvPath = '/Users/vikas/Desktop/kravy-pos-website/.env';
+        const websiteEnvPath = '/Users/vikas/.gemini/antigravity-ide/scratch/kravy-pos-website/.env';
         if (!fs.existsSync(websiteEnvPath)) {
             return res.status(500).json({ error: `Kravy POS Website .env not found at ${websiteEnvPath}` });
         }

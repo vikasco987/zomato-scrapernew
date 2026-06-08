@@ -1225,9 +1225,11 @@
             const cards = document.querySelectorAll('#restaurantGrid > div');
             cards.forEach(card => {
                 const h4 = card.querySelector('h4');
-                if (!h4) return;
-                const name = h4.innerText.toLowerCase();
-                if(name.includes(query)) card.classList.remove('hidden');
+                const p = card.querySelector('p');
+                if (!h4 && !p) return;
+                const name = h4 ? h4.innerText.toLowerCase() : '';
+                const searchData = p ? (p.getAttribute('data-search') || '').toLowerCase() : '';
+                if(name.includes(query) || searchData.includes(query)) card.classList.remove('hidden');
                 else card.classList.add('hidden');
             });
         }
@@ -1511,11 +1513,39 @@
                 const data = await res.json();
                 const allItems = [...data.pending, ...data.completed];
                 
-                document.getElementById('lib-item-count').innerText = `${allItems.length} ITEMS DETECTED`;
+                let foodSnapCount = 0;
+                let puppeteerCount = 0;
+                let totalImages = 0;
+
+                allItems.forEach(i => {
+                    const imgUrl = i.imageUrl || i.cloudinaryUrl || i.image || "";
+                    if (imgUrl) {
+                        totalImages++;
+                        if (imgUrl.includes("foodsnap")) foodSnapCount++;
+                        else puppeteerCount++;
+                    }
+                });
+
+                document.getElementById('lib-item-count').innerHTML = `
+                    ${allItems.length} ITEMS DETECTED 
+                    <span class="ml-4 px-2 py-1 bg-white/5 rounded text-[10px]">Images: ${totalImages}</span>
+                    <span class="ml-2 px-2 py-1 bg-purple-500/10 text-purple-400 rounded text-[10px]">Food Snap: ${foodSnapCount}</span>
+                    <span class="ml-2 px-2 py-1 bg-blue-500/10 text-blue-400 rounded text-[10px]">Puppeteer: ${puppeteerCount}</span>
+                `;
                 
                 grid.innerHTML = allItems.map(item => {
                     const displayName = item.name || item.foodName;
                     const displayImage = item.imageUrl || item.cloudinaryUrl || item.image;
+                    
+                    let sourceBadge = '';
+                    if (displayImage) {
+                        if (displayImage.includes("foodsnap")) {
+                            sourceBadge = '<span class="ml-2 px-1.5 py-0.5 bg-purple-500/10 border border-purple-500/20 text-purple-400 rounded-md text-[7px] font-black uppercase tracking-widest">FOOD SNAP</span>';
+                        } else {
+                            sourceBadge = '<span class="ml-2 px-1.5 py-0.5 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-md text-[7px] font-black uppercase tracking-widest">PUPPETEER</span>';
+                        }
+                    }
+
                     return `
                         <div class="glass-card group overflow-hidden border-white/5 hover:border-orange-500/30">
                             <div class="aspect-square bg-white/[0.02] relative overflow-hidden">
@@ -1525,7 +1555,7 @@
                                 </div>
                             </div>
                             <div class="p-6">
-                                <h4 class="text-lg font-black group-hover:text-orange-500 transition-colors uppercase tracking-tight truncate">${displayName}</h4>
+                                <h4 class="text-lg font-black group-hover:text-orange-500 transition-colors uppercase tracking-tight truncate flex items-center">${displayName} ${sourceBadge}</h4>
                                 <p class="text-[9px] text-dim mt-2 uppercase tracking-widest font-bold">${item.category || 'General'}</p>
                                 <div class="mt-6 pt-6 border-t border-white/5 flex justify-between items-center">
                                     <div class="flex items-center gap-2">
@@ -1727,7 +1757,7 @@
                                 <span class="px-3 py-1 bg-white/5 text-[10px] font-black rounded-full uppercase tracking-tighter">${r.missingImages || 0} Open</span>
                             </div>
                             <h4 class="text-2xl font-black group-hover:text-orange-500 transition-all">${r.name || 'Restaurant'}</h4>
-                            <p class="text-[10px] text-slate-600 font-mono truncate mt-2 mb-6 opacity-50">${r.id}</p>
+                            <p class="text-[10px] text-slate-600 font-mono truncate mt-2 mb-6 opacity-50" data-search="${r.phone || ''} ${r.email || ''}">${r.id}</p>
                         </div>
                         <button onclick="selectRestaurant('${r.id}', '${r.name?.replace(/'/g, "\\'")}')" class="w-full bg-white/5 border border-white/5 py-4 rounded-xl font-bold transition-all hover:bg-orange-500 hover:border-transparent"> INSPECT MENU </button>
                     </div>
@@ -1810,12 +1840,36 @@
             const list = document.getElementById('externalMenuList');
             let html = '';
 
+            const allItems = [...pending, ...completed];
+            let foodSnapCount = 0;
+            let puppeteerCount = 0;
+            let totalImages = 0;
+
+            allItems.forEach(i => {
+                const imgUrl = i.imageUrl || i.cloudinaryUrl || i.image || "";
+                if (imgUrl) {
+                    totalImages++;
+                    if (imgUrl.includes("foodsnap")) foodSnapCount++;
+                    else puppeteerCount++;
+                }
+            });
+
+            if (allItems.length > 0) {
+                html += `
+                <div class="mb-8 flex gap-4">
+                    <span class="px-4 py-2 bg-white/5 border border-white/10 rounded-2xl text-[10px] font-black uppercase">Total Images: ${totalImages}</span>
+                    <span class="px-4 py-2 bg-purple-500/10 border border-purple-500/20 text-purple-400 rounded-2xl text-[10px] font-black uppercase">Food Snap: ${foodSnapCount}</span>
+                    <span class="px-4 py-2 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-2xl text-[10px] font-black uppercase">Puppeteer: ${puppeteerCount}</span>
+                </div>
+                `;
+            }
+
             if(pending.length > 0) {
-                html += `<div class="mt-8 mb-4 flex items-center gap-4"><span class="w-3 h-3 rounded-full bg-red-500 animate-pulse"></span><h5 class="text-xs font-black uppercase tracking-[0.3em] opacity-40">OPEN SYNC TASKS (${pending.length})</h5></div>
+                html += `<div class="mt-4 mb-4 flex items-center gap-4"><span class="w-3 h-3 rounded-full bg-red-500 animate-pulse"></span><h5 class="text-xs font-black uppercase tracking-[0.3em] opacity-40">OPEN SYNC TASKS (${pending.length})</h5></div>
                 <div class="grid grid-cols-1 gap-4 mb-16">${pending.map(i => renderItemRow(i, false)).join('')}</div>`;
             }
             if(completed.length > 0) {
-                html += `<div class="mt-8 mb-4 flex items-center gap-4"><span class="w-3 h-3 rounded-full bg-emerald-500"></span><h5 class="text-xs font-black uppercase tracking-[0.3em] opacity-40">PRODUCTION READY ASSETS (${completed.length})</h5></div>
+                html += `<div class="mt-4 mb-4 flex items-center gap-4"><span class="w-3 h-3 rounded-full bg-emerald-500"></span><h5 class="text-xs font-black uppercase tracking-[0.3em] opacity-40">PRODUCTION READY ASSETS (${completed.length})</h5></div>
                 <div class="grid grid-cols-1 gap-4">${completed.map(i => renderItemRow(i, true)).join('')}</div>`;
             }
             if(pending.length === 0 && completed.length === 0) {
@@ -1839,6 +1893,15 @@
             const displayName = i.name || i.foodName;
             const displayImage = i.imageUrl || i.cloudinaryUrl || i.image;
             const itemId = i.id;
+            
+            let sourceBadge = '';
+            if (displayImage) {
+                if (displayImage.includes("foodsnap")) {
+                    sourceBadge = '<span class="ml-3 px-2 py-1 bg-purple-500/10 border border-purple-500/20 text-purple-400 rounded-lg text-[8px] font-black uppercase tracking-widest">FOOD SNAP</span>';
+                } else {
+                    sourceBadge = '<span class="ml-3 px-2 py-1 bg-blue-500/10 border border-blue-500/20 text-blue-400 rounded-lg text-[8px] font-black uppercase tracking-widest">PUPPETEER</span>';
+                }
+            }
 
             return `
                 <div class="glass-card p-6 flex items-center justify-between group hover:bg-white/[0.02]" id="item-card-${itemId}">
@@ -1847,7 +1910,7 @@
                             ${displayImage ? `<img src="${displayImage}" class="w-full h-full object-cover">` : '<span class="text-2xl opacity-10">🍱</span>'}
                         </div>
                         <div class="text-left">
-                            <p class="text-xl font-bold">${displayName}</p>
+                            <p class="text-xl font-bold flex items-center">${displayName} ${sourceBadge}</p>
                             <div id="item-status-${itemId}" class="mt-1">${isSynced ? '<span class="text-emerald-400 text-[10px] font-black uppercase tracking-widest">✓ VERIFIED</span>' : '<span class="text-red-500 text-[10px] font-black uppercase tracking-widest">✕ MISSING</span>'}</div>
                         </div>
                     </div>

@@ -37,6 +37,7 @@
     "typescript": "^6.0.2"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "@prisma/adapter-better-sqlite3": "^7.5.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",

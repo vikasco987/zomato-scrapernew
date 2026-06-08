@@ -96,30 +96,41 @@ export async function scrapeFoodImages(foodName: string, categoryName: string | 
     const isPizza = (categoryName?.toLowerCase().includes('pizza')) || (cleanName.toLowerCase().includes('pizza'));
     
     // 4. Reject Non-Food Noise (-25 for UI/Stock elements - INCREASED PENALTY)
-    const noiseKeywords = ["logo", "icon", "banner", "placeholder", "default", "avatar", "stock", "alamy", "shutterstock", "dreamstime", "watermark", "text", "price", "label"];
+    const noiseKeywords = ["logo", "icon", "banner", "placeholder", "default", "avatar", "stock", "alamy", "shutterstock", "dreamstime", "watermark", "text", "price", "label", "collage", "recipe", "pinterest", "vector", "illustration", "clipart"];
     
     let searchTerms = isBeverage 
-        ? `${cleanName} drink glass`
-        : `${cleanName} dish food`;
+        ? `${cleanName} drink beverage glass close up high quality -recipe -collage -stock`
+        : `${cleanName} single portion dish close up restaurant food photography -recipe -collage -stock`;
 
     if (isPizza) {
-        // Force the word "pizza" and "italian" to avoid getting generic curry images for "Karahi Paneer Pizza"
-        searchTerms = `${cleanName} italian pizza food`;
+        searchTerms = `${cleanName} italian pizza single slice close up -recipe -collage -stock`;
     }
         
     const query = encodeURIComponent(searchTerms);
 
     console.log(`🔍 [${foodName}] Searching for: ${searchTerms} (isBeverage: ${isBeverage})`);
 
+    const filterCandidates = (cands: any[]) => {
+        return cands.filter(c => {
+            if (!c || !c.url) return false;
+            const urlLower = c.url.toLowerCase();
+            if (urlLower.includes('data:image')) return false;
+            if (noiseKeywords.some(noise => urlLower.includes(noise))) {
+                return false;
+            }
+            return true;
+        });
+    };
+
     // --- FALLBACK 1: DuckDuckGo ---
     const ddgUrl = `https://duckduckgo.com/?q=${query}&iax=images&ia=images`;
     await page.goto(ddgUrl, { waitUntil: 'domcontentloaded' });
     await randomJitter(800, 1500);
     let candidates = await page.evaluate(() => {
-      return Array.from(document.querySelectorAll('.tile--img__img')).slice(0, 5).map(img => ({
+      return Array.from(document.querySelectorAll('.tile--img__img')).slice(0, 10).map(img => ({
            url: (img as HTMLImageElement).src || "", width: 500, height: 500
       }));
-    }).then((res: any[]) => res.filter((c: any) => c.url && !c.url.includes('data:image')));
+    }).then((res: any[]) => filterCandidates(res));
 
     if (candidates.length > 0) console.log(`✅ [${foodName}] Found ${candidates.length} candidates on DuckDuckGo.`);
 
@@ -129,14 +140,15 @@ export async function scrapeFoodImages(foodName: string, categoryName: string | 
       const bingUrl = `https://www.bing.com/images/search?q=${query}&first=1`;
       await page.goto(bingUrl, { waitUntil: 'domcontentloaded' });
       await randomJitter(1000, 2000);
-      candidates = await page.evaluate(() => {
-        return Array.from(document.querySelectorAll('.iusc')).slice(0, 5).map(res => {
+      let rawCandidates = await page.evaluate(() => {
+        return Array.from(document.querySelectorAll('.iusc')).slice(0, 10).map(res => {
           const m = res.getAttribute('m');
           if(!m) return null;
           const metadata = JSON.parse(m);
           return { url: metadata.murl || "", width: metadata.w || 0, height: metadata.h || 0 };
         }).filter(x => x);
       }) as any;
+      candidates = filterCandidates(rawCandidates);
     }
 
     // --- FALLBACK 3: Google (Direct JSON/Script extraction) ---
@@ -145,11 +157,12 @@ export async function scrapeFoodImages(foodName: string, categoryName: string | 
       const googleUrl = `https://www.google.com/search?tbm=isch&q=${query}`;
       await page.goto(googleUrl, { waitUntil: 'domcontentloaded' });
       await randomJitter(1000, 2000);
-      candidates = await page.evaluate(() => {
-        return Array.from(document.querySelectorAll('img')).slice(5, 15).map(img => ({
+      let rawCandidates = await page.evaluate(() => {
+        return Array.from(document.querySelectorAll('img')).slice(5, 20).map(img => ({
            url: img.src || img.dataset.src || "", width: 400, height: 400
         })).filter(c => c.url && c.url.startsWith('http'));
       });
+      candidates = filterCandidates(rawCandidates);
     }
 
     await page.close();

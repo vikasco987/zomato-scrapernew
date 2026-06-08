@@ -78,7 +78,7 @@ export const cleanDishName = (name: string) => {
     }
 
     // 4. 🏆 ADVANCED VARIANT CLEANING (H/F/R, Half/Full, etc.)
-    cleaned = cleaned.replace(/[-/]\s*[HFhfrR]\b|\b(half|full|quarter|small|large|medium|regular)\b/gi, "");
+    cleaned = cleaned.replace(/[-/]\s*[HFhfrR]\b|\b(half|full|quarter|small|large|medium|regular|raw|frozen)\b/gi, "");
 
     // 5. Devanagari translation mapper
     const hasHindi = /[\u0900-\u097F]/.test(cleaned);
