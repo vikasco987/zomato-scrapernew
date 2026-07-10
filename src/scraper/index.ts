@@ -96,7 +96,11 @@ export async function scrapeFoodImages(foodName: string, categoryName: string | 
     const isPizza = (categoryName?.toLowerCase().includes('pizza')) || (cleanName.toLowerCase().includes('pizza'));
     
     // 🛠️ SMART NON-FOOD / RETAIL DETECTION
-    const retailKeywords = ['construction', 'hardware', 'chemical', 'abrasive', 'bolt', 'hinge', 'fastner', 'kunda', 'tool', 'equipment', 'general'];
+    const retailKeywords = [
+        'construction', 'hardware', 'chemical', 'abrasive', 'bolt', 'hinge', 'fastner', 'kunda', 'tool', 'equipment', 'general',
+        'clothing', 'clothes', 'kurti', 'kurtis', 'shirt', 'shirts', 'top', 'tops', 'suit', 'suits', 'dress', 'dresses', 'frock', 
+        'frocks', 'jeans', 'cordset', 'cordsets', 'wear', 'tshirt', 't-shirt', 'pant', 'pants', 'trouser', 'trousers', 'skirt', 'saree', 'lehenga'
+    ];
     const isRetail = retailKeywords.some(k => cleanName.toLowerCase().includes(k) || categoryName?.toLowerCase().includes(k));
     
     // 4. Reject Non-Food Noise (-25 for UI/Stock elements - INCREASED PENALTY)
