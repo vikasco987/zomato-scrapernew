@@ -174,6 +174,7 @@
                 <button onclick="switchTab('history')" id="tab-history" class="nav-tab">🌊 JOBS</button>
                 <button onclick="switchTab('menu-ocr')" id="tab-menu-ocr" class="nav-tab text-purple-400 font-black">📋 MENU OCR</button>
                 <button onclick="switchTab('onboard')" id="tab-onboard" class="nav-tab text-sky-400 font-black">💼 MERCHANT ONBOARD</button>
+                <button onclick="switchTab('quotation')" id="tab-quotation" class="nav-tab text-pink-400 font-black">📝 QUOTATION AI</button>
                 <a href="/lead-scraper.html" class="nav-tab text-yellow-400 font-black">📞 LEADS</a>
             </nav>
         </header>
@@ -450,6 +451,7 @@
                         <button onclick="toggleBridgeAiProfile()" id="aiProfileBtn" ondragover="handleAiProfileDragOver(event)" ondragleave="handleAiProfileDragLeave(event)" ondrop="handleAiProfileDrop(event)" class="flex-1 lg:flex-none px-8 py-5 bg-purple-500/10 border border-purple-500/20 text-purple-400 rounded-3xl text-[10px] font-black uppercase tracking-widest hover:bg-purple-500 hover:text-black transition-all"> 🪄 AI PROFILE AUTO-FILL </button>
                         <input type="file" id="aiProfileFileInput" accept="image/*" class="hidden" onchange="handleAiProfileFileSelected(event)" />
                         <button onclick="toggleBridgeOcr()" id="toggleOcrBtn" class="flex-1 lg:flex-none px-8 py-5 bg-orange-500/10 border border-orange-500/20 text-orange-500 rounded-3xl text-[10px] font-black uppercase tracking-widest hover:bg-orange-500 hover:text-black transition-all"> 📥 UPLOAD NEW MENU </button>
+                        <button onclick="toggleLiveMenuViewerStandalone(true)" id="toggleLiveMenuBtn" class="flex-1 lg:flex-none px-8 py-5 bg-purple-500/10 border border-purple-500/20 text-purple-400 rounded-3xl text-[10px] font-black uppercase tracking-widest hover:bg-purple-500 hover:text-white transition-all"> 📊 VIEW LIVE ZONES </button>
                         <button onclick="toggleBridgeBills()" id="toggleBillsBtn" class="flex-1 lg:flex-none px-8 py-5 bg-orange-500/10 border border-orange-500/20 text-orange-500 rounded-3xl text-[10px] font-black uppercase tracking-widest hover:bg-orange-500 hover:text-black transition-all"> 📋 VIEW BILLS </button>
                         <button onclick="triggerAllScrape()" id="scrapeAllBtn" class="flex-1 lg:flex-none btn-primary px-10 py-5 rounded-3xl text-[10px] uppercase transition-all"> 🚀 SYNC ENTIRE MENU </button>
                         <button onclick="clearRestaurantMenu()" class="flex-1 lg:flex-none px-8 py-5 bg-red-500/10 border border-red-500/20 text-red-500 rounded-3xl text-[10px] font-black uppercase tracking-widest hover:bg-red-500 hover:text-black transition-all"> 🧹 WIPE MENU </button>
@@ -594,6 +596,21 @@
                         </div>
                     </div>
                     
+                    <!-- Menu Stats Banner -->
+                    <div id="bridgeMenuStatsContainer" class="hidden glass-card rounded-3xl p-6 bg-purple-500/10 border-purple-500/20 mb-6 mt-6">
+                        <div class="flex items-center gap-4">
+                            <div class="text-3xl">📊</div>
+                            <div class="flex-1">
+                                <h4 class="text-sm font-black tracking-widest uppercase text-purple-400">Current POS Menu Stats</h4>
+                                <div id="bridgeMenuStatsContent" class="text-xs text-white/70 mt-2 flex gap-6 flex-wrap">
+                                    <span>Loading stats...</span>
+                                </div>
+                            </div>
+                            <button onclick="toggleLiveMenuViewer()" class="px-4 py-2 bg-purple-500 text-white hover:bg-purple-600 border border-purple-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">VIEW LIVE MENU</button>
+                            <button onclick="fetchMenuStats()" class="px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">REFRESH</button>
+                        </div>
+                    </div>
+                    
                     <!-- Table to review extracted items before deploying -->
                     <div id="bridgeTableContainer" class="hidden glass-card rounded-3xl p-8 bg-white/[0.02] border-white/5 space-y-6">
                         <div class="glass-card rounded-2xl p-6 bg-gradient-to-r from-orange-500/10 to-amber-500/10 border border-orange-500/20 flex flex-col md:flex-row justify-between items-center gap-6">
@@ -601,9 +618,14 @@
                                 <h4 class="text-2xl font-black tracking-tight text-white">Review Extracted Menu</h4>
                                 <p class="text-[10px] text-white/50 mt-1">Review, edit names, prices, types, or categories before pushing directly to the billing system.</p>
                             </div>
-                            <div class="flex items-center gap-4">
+                            <div class="flex items-center gap-4 flex-wrap justify-end">
+                                <div class="flex items-center gap-2">
+                                    <input type="text" id="bulkZoneInput" placeholder="Bulk Zone (e.g. Dining)" class="bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-[10px] font-bold text-white focus:border-orange-500 outline-none w-40">
+                                    <button onclick="applyBulkZone(false)" class="px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">APPLY ALL</button>
+                                    <button onclick="applyBulkZone(true)" class="px-4 py-3 bg-orange-500/10 hover:bg-orange-500/20 text-orange-500 border border-orange-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">FILL EMPTY</button>
+                                </div>
                                 <span id="bridgeCountBadge" class="px-4 py-2 bg-orange-500/10 text-orange-500 border border-orange-500/20 text-[10px] font-black uppercase tracking-wider rounded-xl">0 Items Extracted</span>
-                                <button onclick="deployBridgeMenu()" class="px-8 py-5 bg-orange-500 hover:bg-orange-400 font-black uppercase tracking-widest text-[10px] text-black rounded-2xl shadow-[0_0_30px_rgba(249,115,22,0.3)] transition-all hover:scale-105 active:scale-95">💾 DEPLOY & SYNC TO SOFTWARE</button>
+                                <button onclick="deployBridgeMenu()" class="px-8 py-5 bg-orange-500 hover:bg-orange-400 font-black uppercase tracking-widest text-[10px] text-black rounded-2xl shadow-[0_0_30px_rgba(249,115,22,0.3)] transition-all hover:scale-105 active:scale-95">💾 DEPLOY & SYNC</button>
                             </div>
                         </div>
                         
@@ -616,6 +638,7 @@
                                         <th class="px-6 py-5">Price (₹)</th>
                                         <th class="px-6 py-5">Type</th>
                                         <th class="px-6 py-5">Description</th>
+                                        <th class="px-6 py-5">Zone</th>
                                         <th class="px-6 py-5 text-center">Action</th>
                                     </tr>
                                 </thead>
@@ -629,6 +652,40 @@
                     </div> <!-- Close bridgeTableContainer -->
                 </div> <!-- Close bridgeOcrContainer -->
                 
+                <!-- 📊 LIVE MENU VIEWER CONTAINER (Standalone) -->
+                <div id="liveMenuViewerContainer" class="hidden glass-card rounded-[40px] p-12 bg-white/[0.02] border-white/5 space-y-8 mb-12 animate-in slide-in-from-top-10 duration-300">
+                    <div class="flex justify-between items-center border-b border-white/5 pb-6">
+                        <div>
+                            <h4 class="text-3xl font-black text-purple-500 tracking-tight">📊 LIVE POS MENU ITEMS</h4>
+                            <p class="text-[10px] text-white/40 mt-1">View and edit zones of all items currently saved in the POS database.</p>
+                        </div>
+                        <div class="flex flex-col md:flex-row items-end md:items-center gap-4">
+                            <div class="flex items-center gap-2">
+                                <input type="text" id="bulkZoneInputLive" placeholder="Bulk Zone (e.g. Dining)" class="bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-[10px] font-bold text-white focus:border-purple-500 outline-none w-40">
+                                <button onclick="applyBulkZoneLive(false)" id="btnApplyAllLive" class="px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">APPLY ALL</button>
+                                <button onclick="applyBulkZoneLive(true)" id="btnFillEmptyLive" class="px-4 py-3 bg-purple-500/10 hover:bg-purple-500/20 text-purple-500 border border-purple-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">FILL EMPTY</button>
+                            </div>
+                            <button onclick="toggleLiveMenuViewerStandalone(false)" class="px-5 py-3 bg-white/5 border border-white/10 rounded-2xl text-[9px] font-black uppercase tracking-widest text-white/50 hover:bg-white/10 hover:text-white transition-all">CLOSE ✕</button>
+                        </div>
+                    </div>
+                    
+                    <div class="overflow-x-auto rounded-3xl border border-white/5 bg-black/40 max-h-[600px] overflow-y-auto custom-scrollbar">
+                        <table class="w-full text-left border-collapse">
+                            <thead class="sticky top-0 bg-[#0f0f11] z-10 shadow-md">
+                                <tr class="border-b border-white/5 text-[10px] font-black uppercase tracking-widest text-purple-400/60 bg-white/[0.01]">
+                                    <th class="px-6 py-5">Category</th>
+                                    <th class="px-6 py-5">Dish Name</th>
+                                    <th class="px-6 py-5">Price (₹)</th>
+                                    <th class="px-6 py-5">Zone (Auto-saves)</th>
+                                </tr>
+                            </thead>
+                            <tbody id="liveMenuTableBody">
+                                <tr><td colspan="4" class="px-6 py-8 text-center text-white/40">Loading live menu...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
                 <!-- 📋 BRIDGE BILLS CONTAINER -->
                 <div id="bridgeBillsContainer" class="hidden glass-card rounded-[40px] p-12 bg-white/[0.02] border-white/5 space-y-8 mb-12 animate-in slide-in-from-top-10 duration-300">
                     <div class="flex justify-between items-center border-b border-white/5 pb-6">
@@ -879,6 +936,15 @@
 
                 <!-- Right: Menu Upload & Pipeline logs (2 Columns) -->
                 <div class="xl:col-span-2 space-y-8">
+                    <!-- Language Selection -->
+                    <div class="glass-card p-6 bg-white/[0.02] border-white/5 rounded-3xl">
+                        <label class="block text-[10px] font-black uppercase tracking-widest text-sky-400 mb-3">MENU LANGUAGE SETTING</label>
+                        <select id="onboardLanguageSelect" class="w-full bg-black/40 border border-white/10 rounded-2xl px-5 py-4 text-xs font-bold text-white focus:outline-none focus:border-sky-500/50 transition-colors">
+                            <option value="english" selected>English Only (Default) - Best for most Thermal Printers</option>
+                            <option value="dual">Dual Language (English + Hindi/Marathi/Regional) - e.g. "Misal Pav मिसळ पाव"</option>
+                        </select>
+                        <p class="text-[9px] text-dim mt-2 leading-relaxed">If your thermal printer supports regional fonts, select "Dual Language". The AI will automatically detect Marathi, Hindi, etc., and format names without brackets to prevent printing errors.</p>
+                    </div>
                     <!-- Upload Box -->
                     <div id="onboardDropZone" class="relative group glass-card p-8 bg-white/[0.02] border-white/5 rounded-3xl transition-all duration-500 hover:border-sky-500/30 flex flex-col justify-center items-center min-h-[220px] border-2 border-dashed border-white/10 cursor-pointer"
                          onclick="handleDropZoneClick(event)"
@@ -1061,8 +1127,14 @@
                 </div>
 
                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white/[0.02] border border-white/5 p-6 rounded-3xl">
-                    <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-4 flex-wrap">
                         <span class="px-3 py-1 bg-purple-500/20 border border-purple-500/30 text-purple-400 text-[10px] font-black uppercase tracking-widest rounded-full" id="extractedCountBadge">0 Items Extracted</span>
+                        
+                        <div class="flex items-center gap-2">
+                            <input type="text" id="bulkZoneInputOCR" placeholder="Bulk Zone (e.g. Dining)" class="bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-[10px] font-bold text-white focus:border-purple-500 outline-none w-40">
+                            <button onclick="applyBulkZoneOCR(false)" class="px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">APPLY ALL</button>
+                            <button onclick="applyBulkZoneOCR(true)" class="px-4 py-3 bg-purple-500/10 hover:bg-purple-500/20 text-purple-500 border border-purple-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">FILL EMPTY</button>
+                        </div>
                     </div>
                     <!-- Export Actions -->
                     <div class="flex flex-wrap items-center gap-3">
@@ -1107,10 +1179,139 @@
                     </button>
                 </div>
             </div>
+            </div>
+        </main>
+
+        <!-- PAGE: Quotation AI -->
+        <main id="page-quotation" class="tab-content hidden space-y-8">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+                <div>
+                    <h2 class="text-4xl font-black tracking-tight text-pink-400 shimmer-text">Quotation AI Generator</h2>
+                    <p class="text-xs text-dim mt-2">Generate professional DOCX and PDF quotations instantly using Gemini AI.</p>
+                </div>
+            </div>
+            
+            <div class="glass-card p-8 bg-white/[0.02] border-white/5 rounded-3xl space-y-6">
+                <label class="block text-sm font-black uppercase tracking-widest text-pink-400">Customer Request Prompt</label>
+                <textarea id="quotationPrompt" rows="4" class="w-full bg-black/40 border border-white/10 rounded-2xl p-6 text-white text-sm focus:border-pink-500 focus:outline-none" placeholder="Type customer requirements here... e.g. Karan wants Kravy POS for 12 months with a thermal printer for Rs 3000. Valid till 22 June."></textarea>
+                
+                <div class="flex items-center justify-between">
+                    <div id="quotationStatus" class="text-xs font-bold uppercase tracking-widest text-dim">Ready</div>
+                    <button id="btn-generate-preview" onclick="generatePreview()" class="px-8 py-4 bg-gradient-to-r from-pink-500 to-rose-600 hover:from-pink-400 hover:to-rose-500 text-white font-black uppercase tracking-widest text-[10px] rounded-2xl shadow-xl transition-all hover:scale-105 active:scale-95 flex items-center gap-2">
+                        <span>⚡ GENERATE PREVIEW</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Preview Section -->
+            <div id="quotationPreviewSection" class="hidden space-y-6">
+                <h3 class="text-sm font-black uppercase tracking-widest text-emerald-400">Quotation Preview</h3>
+                <div class="bg-white text-black p-8 rounded-xl shadow-2xl max-w-4xl mx-auto overflow-x-auto">
+                    <div class="text-center border-b-2 border-[#1F4E79] pb-4 mb-6">
+                        <h1 class="text-2xl font-bold text-[#1F4E79] uppercase m-0">Kravy Billing Solutions</h1>
+                        <p class="text-sm italic text-gray-600 m-0">Smart Billing & Inventory Software</p>
+                    </div>
+                    <div class="text-center text-xl font-bold mb-6 tracking-widest">QUOTATION</div>
+                    
+                    <table class="w-full border-collapse border border-gray-300 mb-6 text-sm">
+                        <tr class="bg-[#EAF1F8]">
+                            <th class="border border-gray-300 p-2 text-left">Customer</th>
+                            <th class="border border-gray-300 p-2 text-left">Shop Name</th>
+                            <th class="border border-gray-300 p-2 text-left">Phone Number</th>
+                            <th class="border border-gray-300 p-2 text-left">Date</th>
+                            <th class="border border-gray-300 p-2 text-left">Valid Until</th>
+                        </tr>
+                        <tr>
+                            <td class="border border-gray-300 p-2 bg-yellow-50" contenteditable="true" id="prev-customer"></td>
+                            <td class="border border-gray-300 p-2 bg-yellow-50" contenteditable="true" id="prev-shopName"></td>
+                            <td class="border border-gray-300 p-2 bg-yellow-50" contenteditable="true" id="prev-phoneNumber"></td>
+                            <td class="border border-gray-300 p-2 bg-yellow-50" contenteditable="true" id="prev-date"></td>
+                            <td class="border border-gray-300 p-2 bg-yellow-50" contenteditable="true" id="prev-valid"></td>
+                        </tr>
+                    </table>
+
+                    <p class="text-sm mb-4">Dear Customer,<br><br>Thank you for your interest in Kravy Billing Software. As discussed, we are pleased to offer you the following package:</p>
+                    
+                    <h2 class="text-[#1F4E79] text-base font-bold border-b border-gray-200 pb-1 mt-6 mb-2">Package Details</h2>
+                    <table class="w-full border-collapse border border-gray-300 mb-6 text-sm">
+                        <tr><td class="border border-gray-300 p-2 bg-[#F5F7FA] font-bold w-1/3">Software Name</td><td class="border border-gray-300 p-2 bg-yellow-50" contenteditable="true" id="prev-software"></td></tr>
+                        <tr><td class="border border-gray-300 p-2 bg-[#F5F7FA] font-bold">Subscription Duration</td><td class="border border-gray-300 p-2 bg-yellow-50" contenteditable="true" id="prev-duration"></td></tr>
+                        <tr><td class="border border-gray-300 p-2 bg-[#F5F7FA] font-bold">Price Agreed</td><td class="border border-gray-300 p-2 bg-yellow-50" contenteditable="true" id="prev-price"></td></tr>
+                        <tr><td class="border border-gray-300 p-2 bg-[#F5F7FA] font-bold">Device Access</td><td class="border border-gray-300 p-2 bg-yellow-50" contenteditable="true" id="prev-device"></td></tr>
+                        <tr><td class="border border-gray-300 p-2 bg-[#F5F7FA] font-bold">Hardware Included</td><td class="border border-gray-300 p-2 bg-yellow-50" contenteditable="true" id="prev-hardware"></td></tr>
+                    </table>
+
+                    <h2 class="text-[#1F4E79] text-base font-bold border-b border-gray-200 pb-1 mt-6 mb-2">Included Features</h2>
+                    <ul class="list-disc pl-5 text-sm mb-6" id="prev-features"></ul>
+
+                    <h2 class="text-[#1F4E79] text-base font-bold border-b border-gray-200 pb-1 mt-6 mb-2">Total Amount</h2>
+                    <table class="w-full border-collapse border border-gray-300 mb-6 text-sm">
+                        <tr class="bg-[#1F4E79] text-white"><th class="border border-gray-300 p-2 text-left">Description</th><th class="border border-gray-300 p-2 text-left w-1/3">Amount</th></tr>
+                        <tr><td class="border border-gray-300 p-2 bg-yellow-50" contenteditable="true" id="prev-desc"></td><td class="border border-gray-300 p-2 bg-yellow-50" contenteditable="true" id="prev-total-1"></td></tr>
+                        <tr class="bg-[#EAF1F8] font-bold"><td class="border border-gray-300 p-2">Total Payable</td><td class="border border-gray-300 p-2 bg-yellow-50" contenteditable="true" id="prev-total-2"></td></tr>
+                    </table>
+
+                    <h2 class="text-[#1F4E79] text-base font-bold border-b border-gray-200 pb-1 mt-6 mb-2">Renewal Charges</h2>
+                    <p class="text-sm mb-6" id="prev-renewal"></p>
+                </div>
+                
+                <div class="flex items-center justify-end gap-4 mt-6">
+                    <button id="btn-download-docx" onclick="downloadQuotationDocx()" class="px-6 py-3 bg-blue-500/20 hover:bg-blue-500/40 text-blue-400 border border-blue-500/30 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-xl transition-all">
+                        📥 DOWNLOAD DOCX
+                    </button>
+                    <button id="btn-download-pdf" onclick="downloadQuotationPdf()" class="px-6 py-3 bg-red-500/20 hover:bg-red-500/40 text-red-400 border border-red-500/30 rounded-xl font-black uppercase tracking-widest text-[10px] shadow-xl transition-all">
+                        📥 DOWNLOAD PDF
+                    </button>
+                </div>
+            </div>
         </main>
     </div>
 
     <!-- MODAL: MANUAL OVERRIDE -->
+    <!-- Onboarding Success Modal -->
+    <div id="onboardSuccessModal" class="fixed inset-0 bg-black/90 backdrop-blur-xl z-[200] hidden flex items-center justify-center p-8 transition-all duration-500 opacity-0 scale-95">
+        <div class="glass-card max-w-lg w-full bg-[#0a0a0c]/90 border border-emerald-500/30 rounded-[2.5rem] p-10 relative overflow-hidden shadow-[0_0_80px_rgba(16,185,129,0.15)]">
+            
+            <!-- Background Glow -->
+            <div class="absolute top-0 left-1/2 -translate-x-1/2 w-full h-32 bg-emerald-500/20 blur-[60px] pointer-events-none"></div>
+            
+            <div class="relative z-10 flex flex-col items-center text-center">
+                <div class="w-20 h-20 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(16,185,129,0.2)]">
+                    <span class="text-4xl text-emerald-400">🎉</span>
+                </div>
+                
+                <h2 class="text-3xl font-black text-white mb-2 tracking-tight">Onboarding Successful!</h2>
+                <p class="text-sm text-emerald-400/80 font-medium mb-8">The merchant profile and menu are now live.</p>
+                
+                <!-- Credentials Card -->
+                <div class="w-full bg-black/40 border border-white/5 rounded-3xl p-6 mb-8 text-left space-y-4">
+                    <div class="flex items-center justify-between border-b border-white/5 pb-4">
+                        <span class="text-[10px] uppercase tracking-widest text-white/40 font-black">Email</span>
+                        <span id="successModalEmail" class="text-sm font-bold text-white tracking-wide">---</span>
+                    </div>
+                    <div class="flex items-center justify-between border-b border-white/5 pb-4">
+                        <span class="text-[10px] uppercase tracking-widest text-white/40 font-black">Phone</span>
+                        <span id="successModalPhone" class="text-sm font-bold text-white tracking-wide">---</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-[10px] uppercase tracking-widest text-white/40 font-black">Password</span>
+                        <span id="successModalPassword" class="text-sm font-bold text-white tracking-wide">---</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="w-full flex gap-4">
+                    <button onclick="closeOnboardSuccessModal()" class="flex-1 px-6 py-4 bg-white/5 hover:bg-white/10 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all">
+                        Close
+                    </button>
+                    <button id="copyCredentialsBtn" onclick="copyOnboardCredentials()" class="flex-[2] px-6 py-4 bg-emerald-500 hover:bg-emerald-400 text-black rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_rgba(16,185,129,0.5)] flex items-center justify-center gap-2">
+                        <span>📋</span> Copy Details
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="overrideModal" class="fixed inset-0 bg-black/90 backdrop-blur-xl z-[150] hidden flex items-center justify-center p-8 transition-all duration-500">
         <div class="glass-card w-full max-w-2xl p-12 shadow-3xl border-white/10">
             <div class="flex justify-between items-start mb-10">
@@ -1258,6 +1459,152 @@
             if(tabId === 'verified') loadVerified();
             if(tabId === 'auto-upload') loadAutoUpload();
         }
+
+        let currentQuotationData = null;
+
+        async function generatePreview() {
+            const prompt = document.getElementById('quotationPrompt').value;
+            if (!prompt) return alert('Please enter customer requirements first.');
+
+            const btn = document.getElementById('btn-generate-preview');
+            const status = document.getElementById('quotationStatus');
+            const previewSec = document.getElementById('quotationPreviewSection');
+            
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = `<div class="spinner !w-4 !h-4 border-[2px] !border-white !border-t-transparent inline-block align-middle"></div> <span class="align-middle">GENERATING...</span>`;
+            btn.disabled = true;
+            previewSec.classList.add('hidden');
+            
+            status.innerText = "Processing with Gemini AI...";
+            status.className = 'text-xs font-bold uppercase tracking-widest text-pink-400 animate-pulse';
+
+            try {
+                const res = await fetch('/api/quotation/preview', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ prompt })
+                });
+
+                if (!res.ok) {
+                    const errorData = await res.json().catch(() => ({}));
+                    throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
+                }
+
+                currentQuotationData = await res.json();
+
+                // Populate Preview
+                document.getElementById('prev-customer').innerText = currentQuotationData.customerName;
+                document.getElementById('prev-shopName').innerText = currentQuotationData.shopName || '';
+                document.getElementById('prev-phoneNumber').innerText = currentQuotationData.phoneNumber || '';
+                document.getElementById('prev-date').innerText = currentQuotationData.date;
+                document.getElementById('prev-valid').innerText = currentQuotationData.validUntil;
+                document.getElementById('prev-software').innerText = currentQuotationData.softwareName;
+                document.getElementById('prev-duration').innerText = currentQuotationData.subscriptionDuration;
+                document.getElementById('prev-price').innerText = currentQuotationData.priceAgreedText;
+                document.getElementById('prev-device').innerText = currentQuotationData.deviceAccess;
+                document.getElementById('prev-hardware').innerText = currentQuotationData.hardwareIncluded;
+                
+                const ul = document.getElementById('prev-features');
+                ul.innerHTML = currentQuotationData.features.map(f => `<li>${f}</li>`).join('');
+                
+                document.getElementById('prev-desc').innerText = currentQuotationData.totalDescription;
+                document.getElementById('prev-total-1').innerText = currentQuotationData.totalAmountText;
+                document.getElementById('prev-total-2').innerText = currentQuotationData.totalAmountText;
+                document.getElementById('prev-renewal').innerText = currentQuotationData.renewalChargesText;
+
+                previewSec.classList.remove('hidden');
+                status.innerText = "✅ Preview Generated";
+                status.className = 'text-xs font-bold uppercase tracking-widest text-emerald-400';
+            } catch (e) {
+                alert('Preview Generation Failed: ' + e.message);
+                status.innerText = "❌ Generation Failed";
+                status.className = 'text-xs font-bold uppercase tracking-widest text-red-500';
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+            }
+        }
+
+        async function downloadQuotationDocx() {
+            if (!currentQuotationData) return;
+            syncEditsToQuotationData();
+            const btn = document.getElementById('btn-download-docx');
+            btn.innerHTML = '⏳ DOWNLOADING...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/quotation/download-docx', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(currentQuotationData)
+                });
+                
+                if (!res.ok) throw new Error('Download failed');
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'Kravy_Quotation.docx';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+            } catch (e) {
+                alert('DOCX Download failed: ' + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '📥 DOWNLOAD DOCX';
+            }
+        }
+
+        async function downloadQuotationPdf() {
+            if (!currentQuotationData) return;
+            syncEditsToQuotationData();
+            const btn = document.getElementById('btn-download-pdf');
+            btn.innerHTML = '⏳ DOWNLOADING...';
+            btn.disabled = true;
+
+            try {
+                const res = await fetch('/api/quotation/download-pdf', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(currentQuotationData)
+                });
+                
+                if (!res.ok) throw new Error('Download failed');
+                const blob = await res.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'Kravy_Quotation.pdf';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+            } catch (e) {
+                alert('PDF Download failed: ' + e.message);
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '📥 DOWNLOAD PDF';
+            }
+        }
+
+        function syncEditsToQuotationData() {
+            if (!currentQuotationData) return;
+            currentQuotationData.customerName = document.getElementById('prev-customer').innerText;
+            currentQuotationData.shopName = document.getElementById('prev-shopName').innerText;
+            currentQuotationData.phoneNumber = document.getElementById('prev-phoneNumber').innerText;
+            currentQuotationData.date = document.getElementById('prev-date').innerText;
+            currentQuotationData.validUntil = document.getElementById('prev-valid').innerText;
+            
+            currentQuotationData.softwareName = document.getElementById('prev-software').innerText;
+            currentQuotationData.subscriptionDuration = document.getElementById('prev-duration').innerText;
+            currentQuotationData.priceAgreedText = document.getElementById('prev-price').innerText;
+            currentQuotationData.deviceAccess = document.getElementById('prev-device').innerText;
+            currentQuotationData.hardwareIncluded = document.getElementById('prev-hardware').innerText;
+            
+            currentQuotationData.totalDescription = document.getElementById('prev-desc').innerText;
+            currentQuotationData.totalAmountText = document.getElementById('prev-total-1').innerText;
+        }
+
 
         async function loadAutoUpload() {
             const sourceSelect = document.getElementById('auto-upload-source');
@@ -1422,7 +1769,7 @@
                         <div class="aspect-square bg-white/[0.02] relative overflow-hidden">
                             <img src="${item.image}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-[1s]">
                             <div class="absolute top-6 right-6">
-                                <div class="px-4 py-2 bg-emerald-500 text-black text-[9px] font-black rounded-full shadow-[0_0_15px_rgba(16,185,129,0.4)]">✓ VERIFIED</div>
+                                <div class="px-4 py-2 bg-emerald-500 text-black text-[9px] font-black rounded-full shadow-[0_0_15px_rgba(10,185,129,0.4)]">✓ VERIFIED</div>
                             </div>
                         </div>
                         <div class="p-8">
@@ -1559,7 +1906,7 @@
                                 <p class="text-[9px] text-dim mt-2 uppercase tracking-widest font-bold">${item.category || 'General'}</p>
                                 <div class="mt-6 pt-6 border-t border-white/5 flex justify-between items-center">
                                     <div class="flex items-center gap-2">
-                                        <div class="w-1.5 h-1.5 rounded-full ${displayImage ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-red-500'}"></div>
+                                        <div class="w-1.5 h-1.5 rounded-full ${displayImage ? 'bg-emerald-500 shadow-[0_0_8px_rgba(10,185,129,0.5)]' : 'bg-red-500'}"></div>
                                         <span class="text-[8px] font-black uppercase tracking-widest opacity-40">${displayImage ? 'STABLE' : 'MISSING'}</span>
                                     </div>
                                     <button onclick="openOverrideModal('${item.id}', '${displayName.replace(/'/g, "\\'")}')" class="text-xs opacity-0 group-hover:opacity-100 p-2 hover:bg-white/10 rounded-xl transition-all">⚙️</button>
@@ -1714,7 +2061,10 @@
                 allGalleryItems = await res.json();
                 renderGallery(allGalleryItems);
                 renderStats();
-            } catch (e) {}
+            } catch (e) {
+                console.error("fetchData Error:", e);
+                document.getElementById('gallery-container').innerHTML = `<div class="text-red-500">Error loading data: ${e.message}</div>`;
+            }
         }
 
         function renderGallery(items) {
@@ -1723,13 +2073,16 @@
                 container.innerHTML = '<div class="col-span-full py-20 text-center opacity-50 italic">No processed assets found yet.</div>';
                 return;
             }
-            container.innerHTML = items.map(item => `
+            container.innerHTML = items.map(item => {
+                const safeName = (item.foodName || "Unknown").replace(/['"\\]/g, '\\$&');
+                const displayName = item.foodName || "Unknown";
+                return `
                 <div class="glass-card group overflow-hidden relative border-white/5 hover:border-orange-500/30">
                     <img src="${item.cloudinaryUrl}" class="aspect-[4/3] w-full object-cover group-hover:scale-105 transition-all duration-500">
                     <div class="p-6">
                         <div class="flex justify-between items-start">
-                            <h3 class="font-bold truncate text-lg">${item.foodName}</h3>
-                            <button onclick="openOverrideModal('${item.id}', '${item.foodName.replace(/'/g, "\\'")}')" class="p-2 hover:bg-white/10 rounded-lg text-slate-500 hover:text-white">⚙️</button>
+                            <h3 class="font-bold truncate text-lg">${displayName}</h3>
+                            <button onclick="openOverrideModal('${item.id}', '${safeName}')" class="p-2 hover:bg-white/10 rounded-lg text-slate-500 hover:text-white">⚙️</button>
                         </div>
                         <div class="flex items-center gap-3 mt-4 opacity-40 text-[10px] font-black uppercase tracking-[0.2em]">
                             <span>Score: ${item.confidence || 0}%</span>
@@ -1738,7 +2091,7 @@
                         </div>
                     </div>
                 </div>
-            `).join('');
+            `}).join('');
         }
 
         async function loadRestaurants() {
@@ -1780,6 +2133,7 @@
                 currentUserId = id;
                 toggleBridgeOcr(false);
                 toggleBridgeBills(false);
+                toggleLiveMenuViewerStandalone(false);
                 document.getElementById('restaurantView').classList.add('hidden');
                 document.getElementById('selectedRestoName').innerText = name || id;
                 document.getElementById('selectedRestoId').innerText = `BILLING ID: ${id}`;
@@ -2025,6 +2379,7 @@
         function backToRestaurants() { 
             toggleBridgeOcr(false);
             toggleBridgeBills(false);
+            toggleLiveMenuViewerStandalone(false);
             document.getElementById('selectedUserView').classList.add('hidden'); 
             document.getElementById('restaurantView').classList.remove('hidden'); 
         }
@@ -2283,9 +2638,12 @@
                             <option value="false" ${!vegSelected ? 'selected' : ''}>🔴 Non-Vegetarian</option>
                         </select>
                     </td>
+                    <td class="px-6 py-4">
+                        <input type="text" id="zoneInputOCR-${index}" value="${item.zones ? (Array.isArray(item.zones) ? item.zones.join(', ') : item.zones) : ''}" class="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white text-xs w-full focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500" placeholder="e.g. Dining, Takeaway" onchange="updateOCRItem(${index}, 'zones', this.value)" />
+                    </td>
                     <td class="px-6 py-4 text-center">
                         <button onclick="deleteOCRRow(${index})" class="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/20 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all">
-                            🗑️ DELETE
+                            🗑️
                         </button>
                     </td>
                 `;
@@ -2301,6 +2659,21 @@
                 }
                 appendOCRLog(`✏️ Updated item at row ${index + 1}: ${field} ➔ ${value}`, 'info');
             }
+        }
+
+        function applyBulkZoneOCR(onlyEmpty = false) {
+            const val = document.getElementById('bulkZoneInputOCR').value;
+            ocrMenuItems.forEach((item, index) => {
+                const el = document.getElementById(`zoneInputOCR-${index}`);
+                if (el) {
+                    if (onlyEmpty) {
+                        const currentVal = el.value.trim();
+                        if (currentVal !== '') return;
+                    }
+                    el.value = val;
+                    updateOCRItem(index, 'zones', val);
+                }
+            });
         }
 
         function deleteOCRRow(index) {
@@ -2640,6 +3013,13 @@
                     // Populate forms if not already populated
                     if (data.restaurantName && !document.getElementById('onboard-rest-name').value) {
                         document.getElementById('onboard-rest-name').value = data.restaurantName;
+                        
+                        // Auto-fill email based on restaurant name
+                        const emailInput = document.getElementById('onboard-email');
+                        if (!emailInput.value) {
+                            const cleanName = data.restaurantName.toLowerCase().replace(/[^a-z0-9]/g, '');
+                            if (cleanName) emailInput.value = `${cleanName}@gmail.com`;
+                        }
                     }
                     if (data.address && !document.getElementById('onboard-rest-address').value) {
                         document.getElementById('onboard-rest-address').value = data.address;
@@ -2649,6 +3029,14 @@
                     }
                     if (data.phone && !document.getElementById('onboard-rest-phone').value) {
                         document.getElementById('onboard-rest-phone').value = data.phone;
+                        
+                        // Auto-fill Merchant Login Phone
+                        const phoneInput = document.getElementById('onboard-phone');
+                        if (!phoneInput.value) {
+                            const cleanPhone = data.phone.replace(/[^0-9+]/g, '').slice(-10); // get last 10 digits if possible
+                            if (cleanPhone.length === 10) phoneInput.value = cleanPhone;
+                            else phoneInput.value = data.phone.replace(/[^0-9]/g, '');
+                        }
                     }
 
                     if (data.restaurantName) {
@@ -2702,7 +3090,8 @@
                         <select class="bg-[#0f0f11] border border-white/10 rounded-xl px-4 py-2 text-white text-xs w-full focus:border-sky-500 focus:outline-none" onchange="updateOnboardItem(${index}, 'type', this.value)">
                             <option value="Pure Veg" ${vegSelected ? 'selected' : ''}>🟢 Pure Veg</option>
                             <option value="Non-Veg (Egg)" ${item.type === "Non-Veg (Egg)" ? 'selected' : ''}>🟡 Egg</option>
-                            <option value="Non-Veg" ${item.type === "Non-Veg" || (!vegSelected && item.type !== "Non-Veg (Egg)") ? 'selected' : ''}>🔴 Non-Veg</option>
+                            <option value="Non-Veg" ${item.type === "Non-Veg" ? 'selected' : ''}>🔴 Non-Veg</option>
+                            <option value="General" ${item.type === "General" ? 'selected' : ''}>📦 General</option>
                         </select>
                     </td>
                     <td class="px-6 py-4">
@@ -2784,12 +3173,57 @@
                 appendOnboardLog(`📦 Categories Created: ${data.merchant.categoriesSynced}`, 'info');
                 appendOnboardLog(`🍳 Menu Items Active: ${data.merchant.itemsSynced}`, 'info');
 
-                alert(`🎉 SUCCESS!\nMerchant account created & verified directly in Kravy POS!\n\nEmail: ${email}\nPassword: ${password}\nItems: ${data.merchant.itemsSynced}\n\nYou can now open your website at /Users/vikas/Desktop/kravy-pos-website and login!`);
+                // Show Success Modal
+                document.getElementById('successModalEmail').innerText = email;
+                document.getElementById('successModalPhone').innerText = phone;
+                document.getElementById('successModalPassword').innerText = password;
+                
+                const modal = document.getElementById('onboardSuccessModal');
+                modal.classList.remove('hidden');
+                // slight delay for animation
+                setTimeout(() => {
+                    modal.classList.remove('opacity-0', 'scale-95');
+                    modal.classList.add('opacity-100', 'scale-100');
+                }, 10);
+
+                // Optional: Scroll to top to see it clearly if needed
+                window.scrollTo({ top: 0, behavior: 'smooth' });
 
             } catch (e) {
-                appendOnboardLog(`🚨 Deployment Failed: ${e.message}`, 'error');
-                alert(`Direct Deployment Failed:\n${e.message}`);
+                appendOnboardLog(`❌ ERROR: ${e.message}`, 'error');
+                alert(`Deployment Failed:\n${e.message}`);
             }
+        }
+
+        function closeOnboardSuccessModal() {
+            const modal = document.getElementById('onboardSuccessModal');
+            modal.classList.remove('opacity-100', 'scale-100');
+            modal.classList.add('opacity-0', 'scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 500); // match transition duration
+        }
+
+        function copyOnboardCredentials() {
+            const email = document.getElementById('successModalEmail').innerText;
+            const phone = document.getElementById('successModalPhone').innerText;
+            const password = document.getElementById('successModalPassword').innerText;
+            
+            const textToCopy = `*Kravy POS - Merchant Login*\n\nHere are your login credentials:\n*App Link:* https://play.google.com/store/apps/details?id=com.vikas9095.kravy\n*Dashboard Link:* https://billing.kravy.in\n*Email:* ${email}\n*Phone:* ${phone}\n*Password:* ${password}\n\nPlease keep these safe!`;
+            
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                const btn = document.getElementById('copyCredentialsBtn');
+                const originalText = btn.innerHTML;
+                btn.innerHTML = `<span>✅</span> Copied!`;
+                btn.classList.replace('bg-emerald-500', 'bg-emerald-400');
+                
+                setTimeout(() => {
+                    btn.innerHTML = originalText;
+                    btn.classList.replace('bg-emerald-400', 'bg-emerald-500');
+                }, 2000);
+            }).catch(err => {
+                alert('Failed to copy text: ' + err);
+            });
         }
 
         // =====================================================================
@@ -3760,11 +4194,15 @@
                         <select class="bg-[#0f0f11] border border-white/10 rounded-xl px-3 py-2 text-white text-xs w-full focus:border-orange-500 focus:outline-none" onchange="updateBridgeItem(${index}, 'type', this.value)">
                             <option value="Pure Veg" ${isVeg ? 'selected' : ''}>🟢 Pure Veg</option>
                             <option value="Non-Veg (Egg)" ${item.type === 'Non-Veg (Egg)' ? 'selected' : ''}>🟡 Egg</option>
-                            <option value="Non-Veg" ${(!isVeg && item.type !== 'Non-Veg (Egg)') ? 'selected' : ''}>🔴 Non-Veg</option>
+                            <option value="Non-Veg" ${item.type === 'Non-Veg' ? 'selected' : ''}>🔴 Non-Veg</option>
+                            <option value="General" ${item.type === 'General' ? 'selected' : ''}>📦 General</option>
                         </select>
                     </td>
                     <td class="px-6 py-3">
                         <input type="text" value="${(item.description || '').replace(/"/g, '&quot;')}" class="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white/70 text-xs w-full min-w-[180px] focus:border-orange-500 focus:outline-none" onchange="updateBridgeItem(${index}, 'description', this.value)" />
+                    </td>
+                    <td class="px-6 py-3">
+                        <input type="text" id="zoneInput-${index}" value="${item.zones ? (Array.isArray(item.zones) ? item.zones.join(', ') : item.zones) : ''}" class="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white text-xs w-full min-w-[120px] focus:border-orange-500 focus:outline-none" placeholder="e.g. Dining" onchange="updateBridgeItem(${index}, 'zones', this.value)" />
                     </td>
                     <td class="px-6 py-3 text-center">
                         <button onclick="removeBridgeRow(${index})" class="p-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-xl border border-red-500/20 transition-all">🗑️</button>
@@ -3791,6 +4229,191 @@
             document.getElementById('bridgeTableContainer').scrollIntoView({ behavior: 'smooth', block: 'end' });
         }
 
+        function applyBulkZone(onlyEmpty = false) {
+            const val = document.getElementById('bulkZoneInput').value;
+            bridgeMenuItems.forEach((item, index) => {
+                const el = document.getElementById(`zoneInput-${index}`);
+                if (el) {
+                    if (onlyEmpty) {
+                        const currentVal = el.value.trim();
+                        if (currentVal !== '') return; // Skip if it already has a zone
+                    }
+                    el.value = val;
+                    updateBridgeItem(index, 'zones', val);
+                }
+            });
+        }
+
+        async function fetchMenuStats() {
+            if (!currentUserId) return;
+            const content = document.getElementById('bridgeMenuStatsContent');
+            if (content) content.innerHTML = '<span class="animate-pulse">Loading stats...</span>';
+            try {
+                const res = await fetch(`/api/merchant/menu/stats/${currentUserId}`);
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.error);
+                
+                if (content) content.innerHTML = `
+                    <div class="flex flex-col">
+                        <span class="text-[10px] uppercase font-bold opacity-50">Total Items</span>
+                        <span class="text-xl font-black text-white">${data.totalItems}</span>
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="text-[10px] uppercase font-bold opacity-50">Missing Zones</span>
+                        <span class="text-xl font-black ${data.missingZonesCount > 0 ? 'text-red-400' : 'text-emerald-400'}">${data.missingZonesCount}</span>
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="text-[10px] uppercase font-bold opacity-50">Zone Breakdown</span>
+                        <span class="text-xs font-bold text-white/80 mt-1">${
+                            Object.entries(data.zoneBreakdown).map(([z, c]) => `${z}: ${c}`).join(' | ') || 'None'
+                        }</span>
+                    </div>
+                `;
+            } catch (e) {
+                if (content) content.innerHTML = `<span class="text-red-400">Failed to load: ${e.message}</span>`;
+            }
+        }
+
+        let globalLiveItems = [];
+
+        function toggleLiveMenuViewerStandalone(forceOpen) {
+            const container = document.getElementById('liveMenuViewerContainer');
+            const btn = document.getElementById('toggleLiveMenuBtn');
+            if (!container) return;
+            
+            const isHidden = container.classList.contains('hidden');
+            const shouldOpen = (forceOpen === true) ? true : (forceOpen === false) ? false : isHidden;
+
+            if (shouldOpen) {
+                toggleBridgeOcr(false);
+                toggleBridgeBills(false);
+                toggleBridgeAiProfile(false);
+                
+                container.classList.remove('hidden');
+                if (btn) btn.classList.add('bg-purple-500', 'text-white');
+                renderLiveMenuStandalone();
+                container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } else {
+                container.classList.add('hidden');
+                if (btn) btn.classList.remove('bg-purple-500', 'text-white');
+            }
+        }
+
+        async function renderLiveMenuStandalone() {
+            if (!currentUserId) return;
+            const tbody = document.getElementById('liveMenuTableBody');
+            tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-8 text-center text-white/50">Fetching live menu from database...</td></tr>`;
+            document.getElementById('liveMenuViewerContainer').classList.remove('hidden');
+
+            try {
+                const res = await fetch(`/api/merchant/menu/live/${currentUserId}`);
+                const data = await res.json();
+                
+                if (!res.ok || !data.items) throw new Error(data.error || 'Failed to fetch');
+                
+                globalLiveItems = data.items;
+                tbody.innerHTML = '';
+                
+                if (globalLiveItems.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-8 text-center text-white/40">No items found in POS database.</td></tr>`;
+                    return;
+                }
+                
+                globalLiveItems.forEach((item, index) => {
+                    const tr = document.createElement('tr');
+                    tr.className = 'border-b border-white/5 hover:bg-white/[0.01] transition-all';
+                    const zonesStr = (item.zones || []).join(', ');
+                    tr.innerHTML = `
+                        <td class="px-6 py-3 text-xs text-white/50">${item.category}</td>
+                        <td class="px-6 py-3 text-xs font-bold text-white">${item.name}</td>
+                        <td class="px-6 py-3 text-xs text-white/70">₹${item.price}</td>
+                        <td class="px-6 py-3 flex items-center">
+                            <input type="text" id="liveZoneInputStandalone-${index}" value="${zonesStr}" onblur="updateLiveZone('${item._id}', this.value, this)" class="bg-white/5 border border-white/10 rounded-xl px-4 py-2 text-white/70 text-xs w-full min-w-[200px] focus:border-purple-500 focus:outline-none transition-all" placeholder="e.g. Dining, Takeaway" />
+                            <span class="text-[10px] font-bold text-green-400 opacity-0 ml-3 transition-opacity duration-300" id="saveStatus-${item._id}">Saved!</span>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } catch (e) {
+                tbody.innerHTML = `<tr><td colspan="4" class="px-6 py-8 text-center text-red-400">Failed to load: ${e.message}</td></tr>`;
+            }
+        }
+
+        async function applyBulkZoneLive(onlyEmpty = false) {
+            const val = document.getElementById('bulkZoneInputLive').value;
+            if (!val || !currentUserId || globalLiveItems.length === 0) return;
+
+            const btnAll = document.getElementById('btnApplyAllLive');
+            const btnEmpty = document.getElementById('btnFillEmptyLive');
+            const originalTextAll = btnAll.innerText;
+            const originalTextEmpty = btnEmpty.innerText;
+
+            btnAll.innerText = 'SAVING...';
+            btnEmpty.innerText = 'SAVING...';
+            btnAll.disabled = true;
+            btnEmpty.disabled = true;
+
+            const promises = [];
+            let updatedCount = 0;
+
+            globalLiveItems.forEach((item, index) => {
+                const inputEl = document.getElementById(`liveZoneInputStandalone-${index}`);
+                if (inputEl) {
+                    if (onlyEmpty) {
+                        const currentVal = inputEl.value.trim();
+                        if (currentVal !== '') return;
+                    }
+                    inputEl.value = val;
+                    promises.push(updateLiveZone(item._id, val, inputEl).then(() => {
+                        updatedCount++;
+                    }));
+                }
+            });
+
+            await Promise.all(promises);
+
+            btnAll.innerText = originalTextAll;
+            btnEmpty.innerText = originalTextEmpty;
+            btnAll.disabled = false;
+            btnEmpty.disabled = false;
+            
+            if (updatedCount > 0) fetchMenuStats();
+        }
+        
+        async function updateLiveZone(itemId, zonesStr, inputEl) {
+            if (!currentUserId) return;
+            inputEl.classList.add('opacity-50'); // visual feedback
+            
+            try {
+                const res = await fetch('/api/merchant/menu/update-zone', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        clerkId: currentUserId,
+                        itemId: itemId,
+                        zones: zonesStr
+                    })
+                });
+                
+                const data = await res.json();
+                inputEl.classList.remove('opacity-50');
+                
+                if (res.ok) {
+                    const statusSpan = document.getElementById(`saveStatus-${itemId}`);
+                    if (statusSpan) {
+                        statusSpan.classList.remove('opacity-0');
+                        setTimeout(() => statusSpan.classList.add('opacity-0'), 2000);
+                    }
+                    fetchMenuStats(); // Update the top banner stats quietly
+                } else {
+                    alert(`Failed to update zone: ${data.error}`);
+                }
+            } catch (e) {
+                inputEl.classList.remove('opacity-50');
+                alert(`Error: ${e.message}`);
+            }
+        }
+
         // =====================================================================
         // 💾 BRIDGE: DEPLOY TO KRAVY POS SOFTWARE (Wipe Old + Insert New + Scrape)
         // =====================================================================
@@ -3799,7 +4422,7 @@
             if (!bridgeMenuItems || bridgeMenuItems.length === 0) return alert('No menu items to deploy. Please run AI OCR first or add items manually.');
 
             const name = document.getElementById('selectedRestoName').innerText;
-            const confirmed = confirm(`🚀 DEPLOY MENU CONFIRMATION\n\nRestaurant: "${name}"\nItems to Deploy: ${bridgeMenuItems.length}\n\n⚠️ This will:\n1. SAFELY clear the existing menu (only items/categories)\n2. Insert ${bridgeMenuItems.length} new menu items\n3. Auto-queue background image scraper for all items\n\nUser accounts & business profiles stay untouched.\n\nProceed?`);
+            const confirmed = confirm(`🚀 DEPLOY MENU CONFIRMATION\n\nRestaurant: "${name}"\nItems to Deploy: ${bridgeMenuItems.length}\n\n⚠️ This will:\n1. Insert ${bridgeMenuItems.length} new menu items without deleting existing ones.\n2. Auto-queue background image scraper for all items\n\nUser accounts & business profiles stay untouched.\n\nProceed?`);
             if (!confirmed) return;
 
             appendBridgeLog(`🚀 Starting deployment of ${bridgeMenuItems.length} items to Kravy POS...`, 'warning');

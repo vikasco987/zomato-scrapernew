@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import path from "path";
+import * as xlsx from "xlsx";
 import fs from "fs";
 import dotenv from "dotenv";
 import { MongoClient, ObjectId } from "mongodb";
@@ -16,6 +17,7 @@ import { syncMenuDirect } from "./menu-scraper/direct-api.js";
 import { initSocket, emitUpdate } from "./lib/socket.js";
 import { isUrlAlive } from "./lib/image-validator.js";
 import { runZomatoUploadBot, runSingleItemUploadBot } from "./lib/zomato-bot.js";
+import { generateQuotationBuffer } from "./services/quotation.js";
 import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
 import axios from "axios";
@@ -67,8 +69,9 @@ app.get("/api/external-users", async (req, res) => {
         const mongodb = await import('mongodb');
         const MongoClient = mongodb.MongoClient;
         const dotenv = await import('dotenv');
-        dotenv.config({ path: '/Users/vikas/.gemini/antigravity-ide/scratch/kravy-pos-website/.env', override: true });
-        const posDbUrl = process.env.DATABASE_URL as string;
+        const fs = await import('fs');
+        const envConfig = dotenv.parse(fs.readFileSync('/Users/vikas/.gemini/antigravity-ide/scratch/kravy-pos-website/.env'));
+        const posDbUrl = envConfig.DATABASE_URL as string;
         const client = new MongoClient(posDbUrl);
         await client.connect();
         const db = client.db();
@@ -548,6 +551,24 @@ app.post("/api/menu/upload-ocr", upload.single("menuFile"), async (req, res) => 
         const base64Data = fileBuffer.toString("base64");
 
         console.log(`📡 [Menu AI OCR Engine] Processing uploaded file: Name = ${req.file.originalname}, Mime = ${mimeType}, Size = ${fileBuffer.length} bytes`);
+        let inlineDataPart = null;
+        let excelTextPart = null;
+
+        if (mimeType.includes("spreadsheetml") || mimeType.includes("excel") || mimeType.includes("csv")) {
+            console.log("📊 Detected Excel/CSV file! Parsing with xlsx package before sending to Gemini...");
+            const workbook = xlsx.read(fileBuffer, { type: "buffer" });
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            const csvData = xlsx.utils.sheet_to_csv(worksheet);
+            excelTextPart = { text: "Here is the parsed spreadsheet content in CSV format:\n" + csvData };
+        } else {
+            inlineDataPart = {
+                inlineData: {
+                    mimeType: mimeType,
+                    data: base64Data
+                }
+            };
+        }
 
         // Fallback models to try in case of 503 or 429 quota limits
         const modelsToTry = [
@@ -558,29 +579,36 @@ app.post("/api/menu/upload-ocr", upload.single("menuFile"), async (req, res) => 
             "gemini-3.5-flash"
         ];
 
-        const prompt = `
-You are a highly advanced AI system designed to digitize restaurant menus from images and PDFs with elite precision.
-Your job is to read this menu document and extract EVERY single item with 100% precision.
+        const languagePref = req.body.languagePref || "english";
+        const languageRule = languagePref === "dual"
+            ? `5. ENGLISH & NATIVE BILINGUAL NAMES: The menu items must be outputted with their English name followed immediately by the native/regional script name (e.g. Hindi, Marathi, Gujarati, Tamil, etc., whichever is present in the document), separated by a single space. DO NOT USE BRACKETS for the native name! Brackets break the thermal printer. Example: 'Masala Sandwich मसाला सैंडविच' or 'Misal Pav मिसळ पाव'. DO NOT output 'Misal Pav (मिसळ पाव)'. Ensure the spelling is accurate in both languages.`
+            : `5. TRANSLATE & TRANSLITERATE TO ENGLISH: If the menu contains regional script (Devanagari/Hindi/Marathi, etc.), you MUST translate or transliterate it strictly to standard English alphabet characters (e.g. 'Roti', 'Misal Pav', 'Chai'). Do NOT output non-English regional scripts. Every single word in 'restaurantName', 'category', 'name', and 'description' MUST consist strictly of plain English text, numbers, standard spaces, brackets, and punctuation. Do not use special characters or non-English scripts, as thermal printers fail to print them.`;
 
-Also, please search the top/header/footer of the document to extract the restaurant contact details if present:
-- Restaurant Name
+        const prompt = `
+You are a highly advanced AI system designed to digitize menus and product catalogs from images, PDFs, and parsed spreadsheet data with elite precision.
+Your job is to read this document and extract EVERY single item with 100% precision.
+
+CRITICAL INSTRUCTION: First, determine if this document is a FOOD menu (Restaurant/Cafe) OR a RETAIL/GENERAL product catalog (e.g. Hardware, Grocery, Electronics, Clothing).
+
+Also, please search the top/header/footer of the document to extract the business contact details if present:
+- Business/Restaurant Name
 - Address
 - Timings
 - Phone number
 
 Please return a structured JSON response matching the following structure:
 {
-  "restaurantName": "Name of the restaurant (or a default name based on the menu like 'AI Scraped Restaurant' if not found)",
-  "address": "Restaurant address if found (or 'Delhi NCR' if not found)",
+  "restaurantName": "Name of the business (or 'AI Scraped Business' if not found)",
+  "address": "Address if found (or 'Delhi NCR' if not found)",
   "timings": "Timings if found (or '11:00 AM - 11:00 PM' if not found)",
   "phone": "Phone number if found (or '+91 99999 99999' if not found)",
   "menu": [
     {
-      "category": "Logical Category Name (e.g. Dal & Lentils, Paneer Items, Rice, Roti & Parantha, Veg Specials, Egg Specials, Chicken Specials, Breads, Raita, Desserts, Beverages)",
-      "name": "Formatted Item Name, e.g. 'Paneer Tikka (V) (F)'. ALWAYS add the (V) or (NV) badge. CRUCIAL RULE: If the item has different sizes (like Regular, Medium, Large, Half, Full), you MUST append the size suffix inside brackets AT THE END OF THE NAME for EVERY size variant! For example: 'Margherita (V) (R)', 'Margherita (V) (M)', 'Margherita (V) (L)'. Each size MUST have its own row with its specific price.",
-      "price": 250, // Extract the price as a number. Crucial: If one item has multiple sizes/prices (e.g. Half 150 / Full 280), you MUST create a SEPARATE row for each size in this list.
-      "type": "Pure Veg", // Veg items MUST be 'Pure Veg'. Chicken/mutton/fish/meat MUST be 'Non-Veg'. Egg items MUST be 'Non-Veg (Egg)'.
-      "description": "A unique, highly attractive, gourmet 1-line description for this individual row. Crucial: Every single row must have a completely unique description. No two descriptions must be identical, even for different sizes of the same dish!"
+      "category": "Logical Category Name (For Food: Dal, Breads, etc. For Retail: Hardware, Construction, Electronics, etc.)",
+      "name": "Formatted Item Name. FOR FOOD ONLY: ALWAYS add the (V) or (NV) badge. DO NOT add (V) or (NV) badges for Retail/Hardware/Non-Food items! CRUCIAL RULE: If the item has different sizes (like Regular, Medium, Large, Half, Full), you MUST append the size suffix inside brackets AT THE END OF THE NAME for EVERY size variant! Each size MUST have its own row with its specific price.",
+      "price": 250, // Extract the price as a number. Crucial: If one item has multiple sizes/prices, create a SEPARATE row for each size in this list.
+      "type": "Pure Veg", // FOR FOOD ONLY: Veg items MUST be 'Pure Veg'. Meat MUST be 'Non-Veg'. Egg items MUST be 'Non-Veg (Egg)'. FOR RETAIL/HARDWARE/NON-FOOD: ALWAYS use 'General'.
+      "description": "A unique, 1-line description for this individual row. FOR FOOD: A gourmet description. FOR RETAIL/HARDWARE: A professional product description. Crucial: Every single row must have a completely unique description. No two descriptions must be identical!"
     }
   ]
 }
@@ -589,8 +617,8 @@ Strictly follow these rules:
 1. Return ONLY the raw JSON object inside the JSON block. Do not add any conversational text or explanation.
 2. Group items under correct logical categories.
 3. Normalize all spelling and format.
-4. Ensure the output is valid JSON.
-5. TRANSLATE & TRANSLITERATE TO ENGLISH: If the menu contains Hindi script (Devanagari, e.g. 'रोटी', 'दाल मखनी', 'चाय') or any other regional/non-English language, you MUST translate or transliterate it strictly to standard English alphabet characters (e.g. 'Roti', 'Dal Makhani', 'Chai'). Do NOT output Devanagari/Hindi characters or regional script. Every single word in 'restaurantName', 'category', 'name', and 'description' MUST consist strictly of plain English text, numbers, standard spaces, brackets, and punctuation. Do not use special characters or Hindi scripts, as thermal printers fail to print them and customer software displays require standard English text.
+4. Ensure the output is valid JSON. VERY IMPORTANT: You MUST properly escape any double quotes inside string values using a backslash (e.g., "description": "A \\"delicious\\" meal") to prevent JSON parsing errors.
+${languageRule}
 `;
 
         let textResponse = "";
@@ -601,19 +629,15 @@ Strictly follow these rules:
             try {
                 console.log(`🤖 [Menu AI OCR Engine] Trying model: ${model}...`);
                 const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+                
+                const partsArray: any[] = [{ text: prompt }];
+                if (excelTextPart) partsArray.push(excelTextPart);
+                if (inlineDataPart) partsArray.push(inlineDataPart);
 
                 const response = await axios.post(geminiUrl, {
                     contents: [
                         {
-                            parts: [
-                                { text: prompt },
-                                {
-                                    inlineData: {
-                                        mimeType: mimeType,
-                                        data: base64Data
-                                    }
-                                }
-                            ]
+                            parts: partsArray
                         }
                     ],
                     generationConfig: {
@@ -1229,6 +1253,184 @@ app.post('/api/merchant/clear-menu', async (req: any, res: any) => {
     }
 });
 
+// 📊 GET MERCHANT MENU STATS
+app.get('/api/merchant/menu/stats/:clerkId', async (req: any, res: any) => {
+    try {
+        const { clerkId } = req.params;
+        if (!clerkId) {
+            return res.status(400).json({ error: "clerkId is mandatory to fetch menu stats." });
+        }
+
+        const websiteEnvPath = '/Users/vikas/.gemini/antigravity-ide/scratch/kravy-pos-website/.env';
+        if (!fs.existsSync(websiteEnvPath)) {
+            return res.status(500).json({ error: `Kravy POS Website .env not found at ${websiteEnvPath}` });
+        }
+
+        const envContent = fs.readFileSync(websiteEnvPath, 'utf8');
+        const envConfig = dotenv.parse(envContent);
+        const dbUrl = envConfig.DATABASE_URL;
+
+        if (!dbUrl) {
+            return res.status(500).json({ error: "DATABASE_URL is not defined in the Kravy POS Website .env file." });
+        }
+
+        const client = new MongoClient(dbUrl);
+        await client.connect();
+        const db = client.db();
+
+        const userCollection = db.collection('User');
+        const itemCollection = db.collection('Item');
+
+        const matchedUser = await userCollection.findOne({ clerkId: { $regex: new RegExp("^" + clerkId + "$", "i") } });
+        const resolvedClerkId = matchedUser ? matchedUser.clerkId : clerkId;
+
+        const items = await itemCollection.find({ clerkId: resolvedClerkId }).toArray();
+        await client.close();
+
+        let totalItems = items.length;
+        let noZoneCount = 0;
+        let zoneCounts: Record<string, number> = {};
+
+        items.forEach(item => {
+            if (!item.zones || item.zones.length === 0) {
+                noZoneCount++;
+            } else {
+                item.zones.forEach((z: string) => {
+                    zoneCounts[z] = (zoneCounts[z] || 0) + 1;
+                });
+            }
+        });
+
+        res.status(200).json({
+            success: true,
+            totalItems,
+            noZoneCount,
+            zoneCounts
+        });
+
+    } catch (e: any) {
+        console.error("🚨 [Merchant Menu Stats API] Crash:", e.message);
+        res.status(500).json({ error: "Failed to fetch menu stats: " + e.message });
+    }
+});
+
+// 🍽️ GET LIVE MENU ITEMS
+app.get('/api/merchant/menu/live/:clerkId', async (req: any, res: any) => {
+    try {
+        const { clerkId } = req.params;
+        if (!clerkId) {
+            return res.status(400).json({ error: "clerkId is mandatory to fetch live menu." });
+        }
+
+        const websiteEnvPath = '/Users/vikas/.gemini/antigravity-ide/scratch/kravy-pos-website/.env';
+        if (!fs.existsSync(websiteEnvPath)) {
+            return res.status(500).json({ error: `Kravy POS Website .env not found at ${websiteEnvPath}` });
+        }
+
+        const envContent = fs.readFileSync(websiteEnvPath, 'utf8');
+        const envConfig = dotenv.parse(envContent);
+        const dbUrl = envConfig.DATABASE_URL;
+
+        if (!dbUrl) {
+            return res.status(500).json({ error: "DATABASE_URL is not defined in the Kravy POS Website .env file." });
+        }
+
+        const client = new MongoClient(dbUrl);
+        await client.connect();
+        const db = client.db();
+
+        const userCollection = db.collection('User');
+        const itemCollection = db.collection('Item');
+        const categoryCollection = db.collection('Category');
+
+        const matchedUser = await userCollection.findOne({ clerkId: { $regex: new RegExp("^" + clerkId + "$", "i") } });
+        const resolvedClerkId = matchedUser ? matchedUser.clerkId : clerkId;
+
+        const items = await itemCollection.find({ clerkId: resolvedClerkId }).toArray();
+        const categories = await categoryCollection.find({ clerkId: resolvedClerkId }).toArray();
+        
+        await client.close();
+        
+        // Map category IDs to names for UI convenience
+        const catMap: Record<string, string> = {};
+        categories.forEach((c: any) => {
+            catMap[c._id.toString()] = c.name;
+        });
+        
+        const mappedItems = items.map(item => ({
+            _id: item._id.toString(),
+            name: item.name,
+            category: catMap[item.categoryId?.toString()] || 'Unknown',
+            price: item.price,
+            zones: item.zones || []
+        }));
+
+        res.status(200).json({
+            success: true,
+            items: mappedItems
+        });
+
+    } catch (e: any) {
+        console.error("🚨 [Merchant Live Menu API] Crash:", e.message);
+        res.status(500).json({ error: "Failed to fetch live menu: " + e.message });
+    }
+});
+
+// ✏️ UPDATE LIVE MENU ITEM ZONE
+app.post('/api/merchant/menu/update-zone', async (req: any, res: any) => {
+    try {
+        const { clerkId, itemId, zones } = req.body;
+        if (!clerkId || !itemId) {
+            return res.status(400).json({ error: "clerkId and itemId are mandatory." });
+        }
+
+        const websiteEnvPath = '/Users/vikas/.gemini/antigravity-ide/scratch/kravy-pos-website/.env';
+        if (!fs.existsSync(websiteEnvPath)) {
+            return res.status(500).json({ error: `Kravy POS Website .env not found at ${websiteEnvPath}` });
+        }
+
+        const envContent = fs.readFileSync(websiteEnvPath, 'utf8');
+        const envConfig = dotenv.parse(envContent);
+        const dbUrl = envConfig.DATABASE_URL;
+
+        if (!dbUrl) {
+            return res.status(500).json({ error: "DATABASE_URL is not defined in the Kravy POS Website .env file." });
+        }
+
+        const client = new MongoClient(dbUrl);
+        await client.connect();
+        const db = client.db();
+
+        const userCollection = db.collection('User');
+        const itemCollection = db.collection('Item');
+        
+        const matchedUser = await userCollection.findOne({ clerkId: { $regex: new RegExp("^" + clerkId + "$", "i") } });
+        const resolvedClerkId = matchedUser ? matchedUser.clerkId : clerkId;
+
+        const itemZones = zones ? zones.split(',').map((z: string) => z.trim()).filter(Boolean) : [];
+
+        const result = await itemCollection.updateOne(
+            { _id: new ObjectId(itemId), clerkId: resolvedClerkId },
+            { $set: { zones: itemZones, updatedAt: new Date() } }
+        );
+
+        await client.close();
+
+        if (result.matchedCount === 0) {
+            return res.status(404).json({ error: "Item not found or unauthorized." });
+        }
+
+        res.status(200).json({
+            success: true,
+            message: "Zone updated successfully."
+        });
+
+    } catch (e: any) {
+        console.error("🚨 [Merchant Update Zone API] Crash:", e.message);
+        res.status(500).json({ error: "Failed to update zone: " + e.message });
+    }
+});
+
 // 📋 GET MERCHANT BILLS ENDPOINT
 app.get('/api/merchant/bills/:clerkId', async (req: any, res: any) => {
     try {
@@ -1834,11 +2036,8 @@ app.post('/api/merchant/update-menu', async (req: any, res: any) => {
         const userOid = existingUser._id;
         const resolvedClerkId = existingUser.clerkId; // use exact casing
 
-        // 4. Safe Delete: Clear old categories and items using resolved Clerk ID
-        console.log(`🧹 [Merchant Menu Update API] Safe clearing old items and categories for Clerk ID: ${resolvedClerkId}...`);
-        const itemsDeleted = await itemCollection.deleteMany({ clerkId: resolvedClerkId });
-        const categoriesDeleted = await categoryCollection.deleteMany({ clerkId: resolvedClerkId });
-        console.log(`🧹 [Merchant Menu Update API] Cleared ${itemsDeleted.deletedCount} items and ${categoriesDeleted.deletedCount} categories.`);
+        // 4. Skip Delete: We no longer delete existing menu items or categories.
+        console.log(`🧹 [Merchant Menu Update API] Skipping deletion of old items to preserve existing menu for Clerk ID: ${resolvedClerkId}.`);
 
         // 5. Sync Categories & Menu Items
         let categoriesCreatedCount = 0;
@@ -1878,6 +2077,9 @@ app.post('/api/merchant/update-menu', async (req: any, res: any) => {
             const itemType = (item.type || "Pure Veg").trim();
             const isVeg = itemType === "Pure Veg" || itemType === "Veg";
             const isEgg = itemType === "Non-Veg (Egg)";
+            
+            const rawZones = item.zones || item.zone || '';
+            const itemZones = typeof rawZones === 'string' ? rawZones.split(',').map((z: string) => z.trim()).filter(Boolean) : (Array.isArray(rawZones) ? rawZones : []);
 
             // Insert Item
             const itemOid = new ObjectId();
@@ -1908,7 +2110,7 @@ app.post('/api/merchant/update-menu', async (req: any, res: any) => {
                 spiciness: null,
                 rating: 4.5,
                 tags: [],
-                zones: [],
+                zones: itemZones,
                 packagingCharges: 0,
                 gstType: null,
                 taxRate: null,
@@ -1933,10 +2135,10 @@ app.post('/api/merchant/update-menu', async (req: any, res: any) => {
 
         res.status(200).json({
             success: true,
-            message: "Menu cleared and updated successfully directly in Kravy POS!",
+            message: "Menu updated successfully directly in Kravy POS!",
             clerkId: resolvedClerkId,
-            categoriesCleared: categoriesDeleted.deletedCount,
-            itemsCleared: itemsDeleted.deletedCount,
+            categoriesCleared: 0,
+            itemsCleared: 0,
             categoriesSynced: categoriesCreatedCount,
             itemsSynced: itemsCreatedCount
         });
@@ -1944,6 +2146,204 @@ app.post('/api/merchant/update-menu', async (req: any, res: any) => {
     } catch (e: any) {
         console.error("🚨 [Merchant Menu Update API] Crash:", e.message);
         res.status(500).json({ error: "Failed to update menu: " + e.message });
+    }
+});
+
+app.post("/api/quotation/preview", async (req, res) => {
+    try {
+        const { prompt } = req.body;
+        if (!prompt) return res.status(400).json({ error: "Prompt is required" });
+
+        const apiKey = process.env.GOOGLE_API_KEY;
+        if (!apiKey) return res.status(500).json({ error: "Gemini API key missing" });
+
+        const todayDate = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+        const nextWeekDate = new Date(Date.now() + 7*24*60*60*1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+
+        const aiPrompt = `
+You are an expert sales assistant. Extract the following fields from the user's quotation request into a STRICT JSON format.
+Do NOT include any markdown blocks (like \`\`\`json) or extra text, JUST return raw JSON.
+
+Format Required:
+{
+  "customerName": "Extracted name (default to 'Customer')",
+  "shopName": "Extracted shop or restaurant name (default to '')",
+  "phoneNumber": "Extracted phone number (default to '')",
+  "date": "Extracted invoice date. If not mentioned, default to ${todayDate}",
+  "validUntil": "Validity date which defaults to ${nextWeekDate} unless specified otherwise",
+  "softwareName": "Kravy Billing Software",
+  "subscriptionDuration": "e.g. 12 Months",
+  "priceAgreedText": "e.g. Rs. 3,000/-",
+  "deviceAccess": "e.g. Mobile App + Desktop/Laptop",
+  "hardwareIncluded": "e.g. Thermal Printer",
+  "features": ["Fast Billing", "Inventory", "Reports"],
+  "totalDescription": "e.g. Kravy Billing Software + Printer (12 Months)",
+  "totalAmountText": "e.g. Rs. 3,000/-",
+  "renewalChargesText": "e.g. Rs. 1,500/- per year after completion."
+}
+
+User Request: "${prompt}"
+        `;
+
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+        const response = await fetch(geminiUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ contents: [{ parts: [{ text: aiPrompt }] }] })
+        });
+
+        if (!response.ok) throw new Error(`Gemini API Error: ${response.statusText}`);
+
+        const data = await response.json();
+        let jsonText = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+        jsonText = jsonText.replace(/\`\`\`json/g, "").replace(/\`\`\`/g, "").trim();
+        
+        let parsedData;
+        try {
+            parsedData = JSON.parse(jsonText);
+        } catch(e) {
+            throw new Error("Failed to parse Gemini response as JSON: " + jsonText);
+        }
+
+        const finalData = {
+            customerName: parsedData.customerName || "Customer",
+            shopName: parsedData.shopName || "",
+            phoneNumber: parsedData.phoneNumber || "",
+            date: parsedData.date || todayDate,
+            validUntil: parsedData.validUntil || nextWeekDate,
+            softwareName: parsedData.softwareName || "Kravy Billing Software",
+            subscriptionDuration: parsedData.subscriptionDuration || "12 Months",
+            priceAgreedText: parsedData.priceAgreedText || "Rs. 3,000/-",
+            deviceAccess: parsedData.deviceAccess || "Mobile App + Desktop/Laptop, synced on the same account",
+            hardwareIncluded: parsedData.hardwareIncluded || "Thermal Printer with Printer Software",
+            features: parsedData.features || [
+                "Fast Billing System",
+                "Inventory Management",
+                "Daily, Weekly & Monthly Sales Reports",
+                "Customer & Order Management",
+                "Professional Invoice/Bill Generation",
+                "Cloud-based Data Access",
+                "Real-time Business Monitoring",
+            ],
+            totalDescription: parsedData.totalDescription || "Kravy Billing Software + Printer (12 Months)",
+            totalAmountText: parsedData.totalAmountText || "Rs. 3,000/-",
+            renewalChargesText: parsedData.renewalChargesText || "After completion of 12 months, the annual renewal charge will be Rs. 1,500/- per year."
+        };
+
+        res.json(finalData);
+    } catch (e: any) {
+        console.error("Quotation Preview API Error:", e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post("/api/quotation/download-docx", async (req, res) => {
+    try {
+        const finalData = req.body;
+        const buffer = await generateQuotationBuffer(finalData);
+        res.setHeader("Content-Disposition", "attachment; filename=Kravy_Quotation.docx");
+        res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+        res.send(buffer);
+    } catch (e: any) {
+        console.error("Quotation DOCX API Error:", e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
+app.post("/api/quotation/download-pdf", async (req, res) => {
+    try {
+        const finalData = req.body;
+        const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="utf-8">
+            <style>
+                body { font-family: 'Arial', sans-serif; margin: 0; padding: 40px; color: #333; line-height: 1.6; }
+                .header { text-align: center; border-bottom: 3px solid #1F4E79; padding-bottom: 20px; margin-bottom: 30px; }
+                .header h1 { color: #1F4E79; font-size: 28px; margin: 0 0 5px 0; text-transform: uppercase; }
+                .header p { color: #555; font-size: 16px; margin: 0; font-style: italic; }
+                .title { text-align: center; font-size: 24px; font-weight: bold; margin-bottom: 30px; letter-spacing: 2px; }
+                
+                table { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
+                th, td { border: 1px solid #ccc; padding: 12px 15px; text-align: left; font-size: 14px; }
+                th { background-color: #EAF1F8; color: #333; font-weight: bold; }
+                .bg-gray { background-color: #F5F7FA; font-weight: bold; width: 35%; }
+                
+                h2 { color: #1F4E79; font-size: 18px; border-bottom: 1px solid #eee; padding-bottom: 5px; margin-top: 30px; }
+                ul { margin: 0; padding-left: 20px; }
+                li { margin-bottom: 8px; font-size: 14px; }
+                
+                .total-table th { background-color: #1F4E79; color: white; }
+                .total-row { background-color: #EAF1F8; font-weight: bold; }
+                
+                .footer { margin-top: 50px; font-size: 14px; }
+                .signature { margin-top: 40px; }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <h1>Kravy Billing Solutions</h1>
+                <p>Smart Billing & Inventory Software</p>
+            </div>
+            
+            <div class="title">QUOTATION</div>
+            
+            <table>
+                <tr><th>Customer</th><th>Shop Name</th><th>Phone</th><th>Date</th><th>Valid Until</th></tr>
+                <tr><td>${finalData.customerName}</td><td>${finalData.shopName}</td><td>${finalData.phoneNumber}</td><td>${finalData.date}</td><td>${finalData.validUntil}</td></tr>
+            </table>
+            
+            <p>Dear Customer,<br><br>Thank you for your interest in Kravy Billing Software. As discussed, we are pleased to offer you the following package:</p>
+            
+            <h2>Package Details</h2>
+            <table>
+                <tr><td class="bg-gray">Software Name</td><td>${finalData.softwareName}</td></tr>
+                <tr><td class="bg-gray">Subscription Duration</td><td>${finalData.subscriptionDuration}</td></tr>
+                <tr><td class="bg-gray">Price Agreed</td><td>${finalData.priceAgreedText}</td></tr>
+                <tr><td class="bg-gray">Device Access</td><td>${finalData.deviceAccess}</td></tr>
+                <tr><td class="bg-gray">Hardware Included</td><td>${finalData.hardwareIncluded}</td></tr>
+            </table>
+            
+            <h2>Included Features</h2>
+            <ul>
+                ${finalData.features.map((f: string) => `<li>${f}</li>`).join('')}
+            </ul>
+            
+            <h2>Total Amount</h2>
+            <table class="total-table">
+                <tr><th>Description</th><th style="width: 30%">Amount</th></tr>
+                <tr><td>${finalData.totalDescription}</td><td>${finalData.totalAmountText}</td></tr>
+                <tr class="total-row"><td>Total Payable</td><td>${finalData.totalAmountText}</td></tr>
+            </table>
+            
+            <h2>Renewal Charges</h2>
+            <p>${finalData.renewalChargesText}</p>
+            
+            <p style="margin-top: 40px; font-style: italic;">This quotation is valid until ${finalData.validUntil}, as discussed with the customer.</p>
+            <p>We look forward to serving your business with a smart and efficient billing solution.</p>
+            
+            <div class="signature">
+                <p>Regards,</p>
+                <p><strong>Vikas Kushwaha</strong><br>Kravy Billing Solutions</p>
+            </div>
+        </body>
+        </html>
+        `;
+
+        const puppeteer = await import('puppeteer');
+        const browser = await puppeteer.default.launch({ headless: true, args: ['--no-sandbox'] });
+        const page = await browser.newPage();
+        await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
+        const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '20px', bottom: '20px', left: '20px', right: '20px' } });
+        await browser.close();
+
+        res.setHeader("Content-Disposition", "attachment; filename=Kravy_Quotation.pdf");
+        res.setHeader("Content-Type", "application/pdf");
+        res.send(Buffer.from(pdfBuffer));
+    } catch (e: any) {
+        console.error("Quotation PDF API Error:", e.message);
+        res.status(500).json({ error: e.message });
     }
 });
 

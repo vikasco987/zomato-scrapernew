@@ -95,8 +95,12 @@ export async function scrapeFoodImages(foodName: string, categoryName: string | 
     
     const isPizza = (categoryName?.toLowerCase().includes('pizza')) || (cleanName.toLowerCase().includes('pizza'));
     
+    // 🛠️ SMART NON-FOOD / RETAIL DETECTION
+    const retailKeywords = ['construction', 'hardware', 'chemical', 'abrasive', 'bolt', 'hinge', 'fastner', 'kunda', 'tool', 'equipment', 'general'];
+    const isRetail = retailKeywords.some(k => cleanName.toLowerCase().includes(k) || categoryName?.toLowerCase().includes(k));
+    
     // 4. Reject Non-Food Noise (-25 for UI/Stock elements - INCREASED PENALTY)
-    const noiseKeywords = ["logo", "icon", "banner", "placeholder", "default", "avatar", "stock", "alamy", "shutterstock", "dreamstime", "watermark", "text", "price", "label", "collage", "recipe", "pinterest", "vector", "illustration", "clipart"];
+    const noiseKeywords = ["logo", "icon", "banner", "placeholder", "default", "avatar", "stock", "alamy", "shutterstock", "dreamstime", "watermark", "text", "price", "label", "collage", "pinterest", "vector", "illustration", "clipart"];
     
     let searchTerms = isBeverage 
         ? `${cleanName} drink beverage glass close up high quality -recipe -collage -stock`
@@ -104,6 +108,8 @@ export async function scrapeFoodImages(foodName: string, categoryName: string | 
 
     if (isPizza) {
         searchTerms = `${cleanName} italian pizza single slice close up -recipe -collage -stock`;
+    } else if (isRetail) {
+        searchTerms = `${cleanName} high quality product photography white background clear -recipe -collage -stock -food`;
     }
         
     const query = encodeURIComponent(searchTerms);
