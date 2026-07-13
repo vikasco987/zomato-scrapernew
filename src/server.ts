@@ -2190,16 +2190,50 @@ Format Required:
 User Request: "${prompt}"
         `;
 
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-        const response = await fetch(geminiUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ contents: [{ parts: [{ text: aiPrompt }] }] })
-        });
+        let response = null;
+        let lastError = null;
+        let selectedModel = "";
+        let data = null;
 
-        if (!response.ok) throw new Error(`Gemini API Error: ${response.statusText}`);
+        const modelsToTry = [
+            "gemini-2.5-flash",
+            "gemini-2.0-flash",
+            "gemini-2.5-flash-lite",
+            "gemini-2.0-flash-lite",
+            "gemini-3.5-flash"
+        ];
 
-        const data = await response.json();
+        for (const model of modelsToTry) {
+            try {
+                console.log(`🤖 [Quotation AI] Trying model: ${model}...`);
+                const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+                const resObj = await fetch(geminiUrl, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: aiPrompt }] }] })
+                });
+
+                if (resObj.ok) {
+                    response = resObj;
+                    selectedModel = model;
+                    console.log(`✅ [Quotation AI] Success with model: ${model}`);
+                    break;
+                } else {
+                    const errBody = await resObj.json().catch(() => ({}));
+                    const errMsg = errBody.error?.message || resObj.statusText;
+                    throw new Error(`Model ${model} failed with status ${resObj.status}: ${errMsg}`);
+                }
+            } catch (err: any) {
+                console.warn(`⚠️ [Quotation AI] Model ${model} failed: ${err.message}`);
+                lastError = err;
+            }
+        }
+
+        if (!response) {
+            throw new Error(lastError ? lastError.message : "All Gemini models failed or exceeded quota.");
+        }
+
+        data = await response.json();
         let jsonText = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
         jsonText = jsonText.replace(/\`\`\`json/g, "").replace(/\`\`\`/g, "").trim();
         
