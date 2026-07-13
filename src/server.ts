@@ -561,6 +561,11 @@ app.post("/api/menu/upload-ocr", upload.single("menuFile"), async (req, res) => 
             const worksheet = workbook.Sheets[firstSheetName];
             const csvData = xlsx.utils.sheet_to_csv(worksheet);
             excelTextPart = { text: "Here is the parsed spreadsheet content in CSV format:\n" + csvData };
+        } else if (mimeType.includes("wordprocessingml") || mimeType.includes("msword") || req.file.originalname.endsWith(".docx") || req.file.originalname.endsWith(".doc")) {
+            console.log("📝 Detected Word document! Parsing with mammoth before sending to Gemini...");
+            const mammoth = await import("mammoth");
+            const docxResult = await mammoth.default.extractRawText({ buffer: fileBuffer });
+            excelTextPart = { text: "Here is the parsed Word document content:\n" + docxResult.value };
         } else {
             inlineDataPart = {
                 inlineData: {
