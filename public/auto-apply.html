@@ -274,8 +274,8 @@
         <div class="p-4 border-b border-white/5 bg-black/20 space-y-3">
             <label class="text-[10px] font-black uppercase tracking-wider text-white/60">Search Query</label>
             <div class="flex gap-2">
-                <input type="text" id="sidebarSearchInput" class="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-xs focus:border-orange-500 focus:outline-none" placeholder="Search image..." onkeydown="if(event.key === 'Enter') searchSidebarImages()">
-                <button onclick="searchSidebarImages()" class="px-4 py-2.5 bg-orange-500/20 text-orange-400 hover:bg-orange-500 hover:text-black rounded-xl font-bold transition-colors shadow-lg">
+                <input type="text" id="sidebarSearchInput" class="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-xs focus:border-orange-500 focus:outline-none" placeholder="Search image..." onkeydown="if(event.key === 'Enter') searchSidebarImages(1)">
+                <button onclick="searchSidebarImages(1)" class="px-4 py-2.5 bg-orange-500/20 text-orange-400 hover:bg-orange-500 hover:text-black rounded-xl font-bold transition-colors shadow-lg">
                     <i data-lucide="search" class="w-4 h-4"></i>
                 </button>
             </div>
@@ -623,6 +623,9 @@
 
         // --- 6. IMAGE SIDEBAR LOGIC ---
         let currentEditIndex = -1;
+        let sidebarCurrentPage = 1;
+        let sidebarIsLoadingMore = false;
+        let sidebarHasMore = true;
 
         function openImageSidebar(index) {
             const item = extractedItems[index];
@@ -645,7 +648,7 @@
             
             sidebar.classList.remove('translate-x-full');
             
-            searchSidebarImages();
+            searchSidebarImages(1);
         }
 
         function closeImageSidebar() {
@@ -659,35 +662,54 @@
             currentEditIndex = -1;
         }
 
-        async function searchSidebarImages() {
+        async function searchSidebarImages(page = 1, append = false) {
             const query = document.getElementById('sidebarSearchInput').value.trim();
             if(!query) return;
             
+            sidebarCurrentPage = page;
             const grid = document.getElementById('sidebarImageGrid');
-            grid.innerHTML = `
-                <div class="col-span-2 flex flex-col items-center justify-center py-20 opacity-50">
-                    <div class="loader w-8 h-8 border-4 mb-4"></div>
-                    <span class="text-xs font-bold uppercase tracking-widest">Searching...</span>
-                </div>
-            `;
+            
+            if(!append) {
+                grid.innerHTML = `
+                    <div class="col-span-2 flex flex-col items-center justify-center py-20 opacity-50">
+                        <div class="loader w-8 h-8 border-4 mb-4"></div>
+                        <span class="text-xs font-bold uppercase tracking-widest">Searching...</span>
+                    </div>
+                `;
+            } else {
+                sidebarIsLoadingMore = true;
+                const loadingDiv = document.createElement('div');
+                loadingDiv.id = 'sidebarLoadingMore';
+                loadingDiv.className = 'col-span-2 flex flex-col items-center justify-center py-4 opacity-50';
+                loadingDiv.innerHTML = `<div class="loader w-6 h-6 border-2"></div>`;
+                grid.appendChild(loadingDiv);
+            }
             
             try {
-                const res = await fetch(`/api/proxy/image-search?q=${encodeURIComponent(query)}&limit=30`);
+                const res = await fetch(`/api/proxy/image-search?q=${encodeURIComponent(query)}&page=${page}&limit=12`);
                 if(!res.ok) throw new Error("Search failed");
                 
                 const data = await res.json();
                 const photos = data.data || [];
                 
-                if(photos.length === 0) {
+                if(append) {
+                    const loadingDiv = document.getElementById('sidebarLoadingMore');
+                    if(loadingDiv) loadingDiv.remove();
+                } else if(photos.length === 0) {
                     grid.innerHTML = `
                         <div class="col-span-2 flex flex-col items-center justify-center py-20 text-rose-400 opacity-50">
                             <i data-lucide="image-off" class="w-8 h-8 mb-2"></i>
                             <span class="text-xs font-bold uppercase tracking-widest">No images found</span>
                         </div>
                     `;
+                    sidebarHasMore = false;
                     lucide.createIcons();
                     return;
+                } else {
+                    grid.innerHTML = ''; // clear loading state
                 }
+                
+                sidebarHasMore = photos.length >= 12;
                 
                 let html = '';
                 photos.forEach(photo => {
@@ -705,20 +727,39 @@
                         `;
                     }
                 });
-                grid.innerHTML = html;
+                
+                if (append) {
+                    grid.insertAdjacentHTML('beforeend', html);
+                } else {
+                    grid.innerHTML = html;
+                }
+                
                 lucide.createIcons();
                 
             } catch (e) {
                 console.error("Sidebar search error:", e);
-                grid.innerHTML = `
-                    <div class="col-span-2 flex flex-col items-center justify-center py-20 text-rose-400 opacity-50">
-                        <i data-lucide="x-circle" class="w-8 h-8 mb-2"></i>
-                        <span class="text-xs font-bold uppercase tracking-widest">Error fetching images</span>
-                    </div>
-                `;
+                if(!append) {
+                    grid.innerHTML = `
+                        <div class="col-span-2 flex flex-col items-center justify-center py-20 text-rose-400 opacity-50">
+                            <i data-lucide="x-circle" class="w-8 h-8 mb-2"></i>
+                            <span class="text-xs font-bold uppercase tracking-widest">Error fetching images</span>
+                        </div>
+                    `;
+                }
                 lucide.createIcons();
+            } finally {
+                sidebarIsLoadingMore = false;
             }
         }
+        
+        document.getElementById('sidebarImageGrid').addEventListener('scroll', function() {
+            if(sidebarIsLoadingMore || !sidebarHasMore) return;
+            
+            const { scrollTop, scrollHeight, clientHeight } = this;
+            if(scrollTop + clientHeight >= scrollHeight - 50) {
+                searchSidebarImages(sidebarCurrentPage + 1, true);
+            }
+        });
         
         function selectSidebarImage(imgUrl) {
             if(currentEditIndex === -1) return;

@@ -37,9 +37,9 @@ app.use(express.static(path.join(__dirname, "../public")));
 
 // --- CLOUDINARY CONFIG ---
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || "digpvlfup",
-  api_key: process.env.CLOUDINARY_API_KEY || "895312762269925",
-  api_secret: process.env.CLOUDINARY_API_SECRET || "s2jIsM57m_x2Ww2D23p4VjYpXoQ"
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME || "digpvlfup",
+    api_key: process.env.CLOUDINARY_API_KEY || "895312762269925",
+    api_secret: process.env.CLOUDINARY_API_SECRET || "s2jIsM57m_x2Ww2D23p4VjYpXoQ"
 });
 
 const storage = multer.memoryStorage();
@@ -49,142 +49,142 @@ const upload = multer({ storage });
  * 🌉 BRIDGE SYSTEM: Fetch User Data from Billing
  */
 app.get("/api/external-users", async (req, res) => {
-  const EXTERNAL_BASE = process.env.EXTERNAL_API_BASE || "https://billing.kravy.in/api/external";
-  const SECRET_KEY = process.env.SCRAPER_SECRET_KEY || "kravy_scraper_secret_2026";
-  
-  try {
-    const response = await fetch(`${EXTERNAL_BASE}/users`, {
-      headers: { "x-scraper-secret": SECRET_KEY }
-    });
-    const users = await response.json();
-    
-    // Normalize users to ensure they have an 'id' that the frontend can use
-    let normalizedUsers = users.map((u: any) => ({
-        ...u,
-        id: u.id || u.clerkId || (u._id?.$oid) || u._id
-    }));
+    const EXTERNAL_BASE = process.env.EXTERNAL_API_BASE || "https://billing.kravy.in/api/external";
+    const SECRET_KEY = process.env.SCRAPER_SECRET_KEY || "kravy_scraper_secret_2026";
 
     try {
-        // Hot-wire: Fetch emails and phones directly from the POS database
-        const mongodb = await import('mongodb');
-        const MongoClient = mongodb.MongoClient;
-        const dotenv = await import('dotenv');
-        const fs = await import('fs');
-        const envConfig = dotenv.parse(fs.readFileSync('/Users/vikas/.gemini/antigravity-ide/scratch/kravy-pos-website/.env'));
-        const posDbUrl = envConfig.DATABASE_URL as string;
-        const client = new MongoClient(posDbUrl);
-        await client.connect();
-        const db = client.db();
-        const allUsers = await db.collection('User').find({}).toArray();
-        const userMap = new Map(allUsers.filter((u: any) => u.clerkId).map((u: any) => [u.clerkId, u]));
-        
-        normalizedUsers = normalizedUsers.map((u: any) => {
-            const match = userMap.get(u.id) as any;
-            return {
-                ...u,
-                email: match?.email || u.email || '',
-                phone: match?.phone || u.phone || ''
-            };
+        const response = await fetch(`${EXTERNAL_BASE}/users`, {
+            headers: { "x-scraper-secret": SECRET_KEY }
         });
-        await client.close();
-    } catch (dbErr) {
-        console.error("Failed to hot-wire POS DB for emails:", dbErr);
-    }
-    
-    console.log(`🌉 [Bridge] Fetched ${normalizedUsers.length} external users.`);
-    const shepabi = normalizedUsers.find((u: any) => (u.name || "").includes("SHEPABI"));
-    if (shepabi) {
-        console.log(`✅ [Bridge] SHEPABI found in normalization: ${shepabi.id}`);
-    } else {
-        console.log(`❌ [Bridge] SHEPABI NOT found in normalization!`);
-    }
-    
-    // Also include local restaurants so user can sync them too
-    const localRestaurants = await prisma.restaurant.findMany();
-    const formattedLocal = localRestaurants.map(r => ({
-        id: r.id,
-        name: r.name,
-        isLocal: true,
-        missingImages: 0 // Will be calculated in menu view
-    }));
+        const users = await response.json();
 
-    const combined = [...normalizedUsers, ...formattedLocal].sort((a, b) => 
-        (a.name || "").toLowerCase().localeCompare((b.name || "").toLowerCase())
-    );
+        // Normalize users to ensure they have an 'id' that the frontend can use
+        let normalizedUsers = users.map((u: any) => ({
+            ...u,
+            id: u.id || u.clerkId || (u._id?.$oid) || u._id
+        }));
 
-    res.json(combined);
-  } catch (e) { 
-    // Fallback if billing server is down
-    const localRestaurants = await prisma.restaurant.findMany();
-    const fallback = localRestaurants.map(r => ({ id: r.id, name: r.name, isLocal: true }))
-        .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
-    
-    res.json(fallback);
-  }
+        try {
+            // Hot-wire: Fetch emails and phones directly from the POS database
+            const mongodb = await import('mongodb');
+            const MongoClient = mongodb.MongoClient;
+            const dotenv = await import('dotenv');
+            const fs = await import('fs');
+            const envConfig = dotenv.parse(fs.readFileSync('/Users/vikas/.gemini/antigravity-ide/scratch/kravy-pos-website/.env'));
+            const posDbUrl = envConfig.DATABASE_URL as string;
+            const client = new MongoClient(posDbUrl);
+            await client.connect();
+            const db = client.db();
+            const allUsers = await db.collection('User').find({}).toArray();
+            const userMap = new Map(allUsers.filter((u: any) => u.clerkId).map((u: any) => [u.clerkId, u]));
+
+            normalizedUsers = normalizedUsers.map((u: any) => {
+                const match = userMap.get(u.id) as any;
+                return {
+                    ...u,
+                    email: match?.email || u.email || '',
+                    phone: match?.phone || u.phone || ''
+                };
+            });
+            await client.close();
+        } catch (dbErr) {
+            console.error("Failed to hot-wire POS DB for emails:", dbErr);
+        }
+
+        console.log(`🌉 [Bridge] Fetched ${normalizedUsers.length} external users.`);
+        const shepabi = normalizedUsers.find((u: any) => (u.name || "").includes("SHEPABI"));
+        if (shepabi) {
+            console.log(`✅ [Bridge] SHEPABI found in normalization: ${shepabi.id}`);
+        } else {
+            console.log(`❌ [Bridge] SHEPABI NOT found in normalization!`);
+        }
+
+        // Also include local restaurants so user can sync them too
+        const localRestaurants = await prisma.restaurant.findMany();
+        const formattedLocal = localRestaurants.map(r => ({
+            id: r.id,
+            name: r.name,
+            isLocal: true,
+            missingImages: 0 // Will be calculated in menu view
+        }));
+
+        const combined = [...normalizedUsers, ...formattedLocal].sort((a, b) =>
+            (a.name || "").toLowerCase().localeCompare((b.name || "").toLowerCase())
+        );
+
+        res.json(combined);
+    } catch (e) {
+        // Fallback if billing server is down
+        const localRestaurants = await prisma.restaurant.findMany();
+        const fallback = localRestaurants.map(r => ({ id: r.id, name: r.name, isLocal: true }))
+            .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+
+        res.json(fallback);
+    }
 });
 
 app.get("/api/external-menu/:userId", async (req, res) => {
-  const { userId } = req.params;
-  const EXTERNAL_BASE = process.env.EXTERNAL_API_BASE || "https://billing.kravy.in/api/external";
-  const SECRET_KEY = process.env.SCRAPER_SECRET_KEY || "kravy_scraper_secret_2026";
+    const { userId } = req.params;
+    const EXTERNAL_BASE = process.env.EXTERNAL_API_BASE || "https://billing.kravy.in/api/external";
+    const SECRET_KEY = process.env.SCRAPER_SECRET_KEY || "kravy_scraper_secret_2026";
 
-  try {
-    let externalItems = [];
-    
-    // 🛡️ Validate if userId is a valid MongoDB ObjectId
-    const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(userId);
-    
-    if (isValidObjectId) {
-        const localResto = await prisma.restaurant.findUnique({ where: { id: userId } });
-        if (localResto) {
-            externalItems = await prisma.menuItem.findMany({ where: { restaurantId: userId } });
+    try {
+        let externalItems = [];
+
+        // 🛡️ Validate if userId is a valid MongoDB ObjectId
+        const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(userId);
+
+        if (isValidObjectId) {
+            const localResto = await prisma.restaurant.findUnique({ where: { id: userId } });
+            if (localResto) {
+                externalItems = await prisma.menuItem.findMany({ where: { restaurantId: userId } });
+            }
         }
-    }
 
-    // If no local items found, fetch from external billing
-    if (externalItems.length === 0) {
-        const response = await fetch(`${EXTERNAL_BASE}/menu/${userId}`, {
-            headers: { "x-scraper-secret": SECRET_KEY }
+        // If no local items found, fetch from external billing
+        if (externalItems.length === 0) {
+            const response = await fetch(`${EXTERNAL_BASE}/menu/${userId}`, {
+                headers: { "x-scraper-secret": SECRET_KEY }
+            });
+            externalItems = await response.json();
+        }
+
+        const localCompleted = await prisma.foodImage.findMany({
+            where: { userId, status: "completed" }
         });
-        externalItems = await response.json();
+
+        const pendingWithImages = externalItems.map((i: any) => {
+            const rawName = i.name || i.foodName || "";
+            const cleanedName = rawName.replace(/\(.*\)|\[.*\]|\d+\s*ml|\d+\s*lit/gi, "").trim();
+            const match = localCompleted.find(lc => lc.foodName.toLowerCase() === cleanedName.toLowerCase() || lc.foodName.toLowerCase() === rawName.toLowerCase());
+            if (match && match.cloudinaryUrl) {
+                return { ...i, imageUrl: match.cloudinaryUrl, _isLocalMatch: true };
+            }
+            return i;
+        });
+
+        const pending = pendingWithImages.filter((i: any) => !i.imageUrl && !(i.image || i.cloudinaryUrl));
+        const completed = pendingWithImages.filter((i: any) => i.imageUrl || i.image || i.cloudinaryUrl);
+
+        res.json({
+            pending: pending,
+            completed: completed,
+            stats: {
+                totalPending: pending.length,
+                totalCompleted: completed.length,
+                totalMenu: externalItems.length
+            }
+        });
+    } catch (e: any) {
+        res.json({ pending: [], completed: [], stats: { totalPending: 0, totalCompleted: 0 } });
     }
-
-    const localCompleted = await prisma.foodImage.findMany({
-      where: { userId, status: "completed" }
-    });
-
-    const pendingWithImages = externalItems.map((i: any) => {
-      const rawName = i.name || i.foodName || "";
-      const cleanedName = rawName.replace(/\(.*\)|\[.*\]|\d+\s*ml|\d+\s*lit/gi, "").trim();
-      const match = localCompleted.find(lc => lc.foodName.toLowerCase() === cleanedName.toLowerCase() || lc.foodName.toLowerCase() === rawName.toLowerCase());
-      if (match && match.cloudinaryUrl) {
-          return { ...i, imageUrl: match.cloudinaryUrl, _isLocalMatch: true };
-      }
-      return i;
-    });
-
-    const pending = pendingWithImages.filter((i: any) => !i.imageUrl && !(i.image || i.cloudinaryUrl));
-    const completed = pendingWithImages.filter((i: any) => i.imageUrl || i.image || i.cloudinaryUrl);
-
-    res.json({
-      pending: pending,
-      completed: completed,
-      stats: {
-        totalPending: pending.length,
-        totalCompleted: completed.length,
-        totalMenu: externalItems.length
-      }
-    });
-  } catch (e: any) { 
-    res.json({ pending: [], completed: [], stats: { totalPending: 0, totalCompleted: 0 } }); 
-  }
 });
 
 app.post("/api/scrape-external", async (req, res) => {
     try {
         const { userId } = req.body;
-        if(!userId) return res.status(400).json({ error: "User ID required" });
-        
+        if (!userId) return res.status(400).json({ error: "User ID required" });
+
         let count = 0;
         const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(userId);
 
@@ -205,7 +205,7 @@ app.post("/api/scrape-external", async (req, res) => {
                     headers: { "x-scraper-secret": process.env.SCRAPER_SECRET_KEY || "kravy_scraper_secret_2026" }
                 });
                 const items: any = await fetchRes.json();
-                
+
                 if (Array.isArray(items)) {
                     count = items.length;
                 } else if (items && typeof items === 'object') {
@@ -235,12 +235,12 @@ app.post("/api/scrape-leads", (req, res) => {
         if (!location || !source) {
             return res.status(400).json({ error: "Location and Source are required." });
         }
-        
+
         // Start Scraping in Background
         scrapeLeads(location, source.toLowerCase()).catch(err => {
             console.error(`🚨 [Background Scraper] Job Failed: ${err.message}`);
         });
-        
+
         res.json({ success: true, message: "Scraping started in background" });
     } catch (e: any) {
         console.error(`🚨 [Lead Scraper] Error: ${e.message}`);
@@ -289,26 +289,26 @@ app.get("/api/leads/session/:id", async (req, res) => {
  */
 app.post("/api/sync-menu", async (req, res) => {
     const { url } = req.body;
-    if(!url) return res.status(400).json({ error: "URL Required" });
-    
+    if (!url) return res.status(400).json({ error: "URL Required" });
+
     const { emitUpdate } = (await import("./lib/socket.js"));
     console.log(`🚜 [Scraper Console] Initiating: ${url}`);
-    
+
     try {
         emitUpdate('scraper:log', { message: `🚜 LAUNCHING HEADLESS BROWSER...`, status: 'primary' });
         emitUpdate('scraper:log', { message: `🌐 TARGET: ${url}`, status: 'primary' });
-        
+
         const menuData = await scrapeZomatoMenu(url);
-        
+
         emitUpdate('scraper:log', { message: `✅ EXTRACTION SUCCESSFUL: Found ${menuData.restaurant?.name}`, status: 'success' });
         emitUpdate('scraper:log', { message: `📊 ITEMS DISCOVERED: ${menuData.itemsCount}`, status: 'success' });
 
         // Dispatch to background queue for images - PASS REAL ID AND COUNT
         const job = await queueManager.addJob(menuData.restaurant?.id || "unknown", menuData.itemsCount);
-        
+
         emitUpdate('scraper:log', { message: `🚢 SYNC JOB DISPATCHED [ID: ${job.id}]`, status: 'primary' });
         res.json({ success: true, jobId: job.id, data: menuData });
-    } catch(e: any) {
+    } catch (e: any) {
         console.error(`❌ SCRAPER FAILED: ${e.message}`);
         emitUpdate('scraper:log', { message: `❌ IMPORT FAILED: ${e.message}`, status: 'error' });
         res.status(500).json({ error: e.message });
@@ -317,21 +317,21 @@ app.post("/api/sync-menu", async (req, res) => {
 
 app.post("/api/sync-direct", async (req, res) => {
     const { url } = req.body;
-    if(!url) return res.status(400).json({ error: "URL Required" });
-    
+    if (!url) return res.status(400).json({ error: "URL Required" });
+
     console.log(`📡 [Direct API Hub] Initiating: ${url}`);
-    
+
     try {
         emitUpdate('scraper:log', { message: `📡 [DIRECT-API] CONNECTING TO TARGET GATEWAY...`, status: 'primary' });
         emitUpdate('scraper:log', { message: `🌐 [DIRECT-API] TARGET: ${url}`, status: 'primary' });
-        
+
         const result = await syncMenuDirect(url);
-        
+
         emitUpdate('scraper:log', { message: `✅ [DIRECT-API] SYNC FINISHED: Found ${result.restaurant?.name}`, status: 'success' });
         emitUpdate('scraper:log', { message: `📊 [DIRECT-API] ITEMS SAVED: ${result.itemsCount}`, status: 'success' });
 
         res.json(result);
-    } catch(e: any) {
+    } catch (e: any) {
         console.error(`❌ [DIRECT-API] FAILED: ${e.message}`);
         emitUpdate('scraper:log', { message: `❌ [DIRECT-API] FAILED: ${e.message}`, status: 'error' });
         res.status(500).json({ error: e.message });
@@ -350,13 +350,13 @@ app.delete("/api/jobs/:id", async (req, res) => {
 app.post("/api/force-score/:id", async (req, res) => {
     const { id } = req.params;
     console.log(`⚡ [Force Score] Initiating Deep Test for Resto: ${id}`);
-    
+
     emitUpdate('scraper:log', { message: `⚡ INITIATING DEEP SCAN FOR RESTO: ${id}`, status: 'primary' });
-    
+
     // 🛡️ Guard against malformed ObjectID
     const isValidObjectId = /^[0-9a-fA-F]{24}$/.test(id);
     if (!isValidObjectId) {
-      return res.json({ success: true, approvedCount: 0, totalChecked: 0, message: "External ID skipped" });
+        return res.json({ success: true, approvedCount: 0, totalChecked: 0, message: "External ID skipped" });
     }
 
     const items = await (prisma as any).menuItem.findMany({ where: { restaurantId: id } });
@@ -365,12 +365,12 @@ app.post("/api/force-score/:id", async (req, res) => {
 
     // Process in parallel with a concurrency limit
     const CHUNK_SIZE = 10;
-    for(let i = 0; i < items.length; i += CHUNK_SIZE) {
+    for (let i = 0; i < items.length; i += CHUNK_SIZE) {
         const chunk = items.slice(i, i + CHUNK_SIZE);
         await Promise.all(chunk.map(async (item: any) => {
-            if(!item.image) return;
+            if (!item.image) return;
             const alive = await isUrlAlive(item.image);
-            if(alive) {
+            if (alive) {
                 await prisma.menuItem.update({
                     where: { id: item.id },
                     data: { stabilityStatus: 'STABLE', updatedAt: new Date() }
@@ -381,7 +381,7 @@ app.post("/api/force-score/:id", async (req, res) => {
         }));
         emitUpdate('scraper:log', { message: `🔍 SCANNED ${checked}/${items.length} ITEMS...`, status: 'primary' });
     }
-    
+
     emitUpdate('scraper:log', { message: `✅ DEEP TEST COMPLETE. PROMOTED ${approved} ASSETS TO VERIFIED HUB.`, status: 'success' });
     res.json({ success: true, approved });
 });
@@ -389,24 +389,24 @@ app.post("/api/force-score/:id", async (req, res) => {
 app.post("/api/auto-upload", async (req, res) => {
     const { sourceId, targetId } = req.body;
     console.log(`🤖 [Auto-Upload] Mapping: ${sourceId} -> ${targetId}`);
-    
+
     // Background the bot run with mapped IDs
     runZomatoUploadBot(sourceId, targetId).catch(err => {
         console.error(`🚨 [Auto-Upload] Mapping Failed: ${err.message}`);
     });
-    
+
     res.json({ success: true, message: `Deployment Mapped: ${sourceId} -> ${targetId}` });
 });
 
 app.post("/api/auto-upload-single", async (req, res) => {
     const { targetId, name, price, desc } = req.body;
     console.log(`🤖 [Auto-Upload-Single] Pushing: ${name} (₹${price}) -> ${targetId}`);
-    
+
     // Background the bot run for a single item
     runSingleItemUploadBot(targetId, { name, price, description: desc }).catch((err: any) => {
         console.error(`🚨 [Auto-Upload-Single] Push Failed: ${err.message}`);
     });
-    
+
     res.json({ success: true, message: `Single Asset Queued: ${name} -> ${targetId}` });
 });
 
@@ -424,7 +424,7 @@ app.get("/api/foods", async (req, res) => {
 
 app.get("/api/best-assets", async (req, res) => {
     const assets = await (prisma as any).menuItem.findMany({
-        where: { 
+        where: {
             stabilityStatus: "STABLE",
             image: { not: null }
         },
@@ -437,7 +437,7 @@ app.get("/api/best-assets", async (req, res) => {
 app.get("/api/zomato-items", async (req, res) => {
     // Returns all items tagged with source 'zomato' or that have been uploaded
     const items = await prisma.menuItem.findMany({
-        where: { 
+        where: {
             OR: [
                 { source: 'zomato' },
                 { uploadedAt: { not: null } }
@@ -494,11 +494,11 @@ app.post("/api/upload-manual/:id", upload.single('image'), async (req, res) => {
 
         const updated = await prisma.foodImage.update({
             where: { id: id as string },
-            data: { 
-                cloudinaryUrl: cdnUrl, 
-                status: "completed", 
+            data: {
+                cloudinaryUrl: cdnUrl,
+                status: "completed",
                 isManual: true,
-                updatedAt: new Date() 
+                updatedAt: new Date()
             }
         });
 
@@ -510,7 +510,7 @@ app.post("/api/upload-manual/:id", upload.single('image'), async (req, res) => {
 
 app.post("/api/verify-zomato/:id", async (req, res) => {
     const { id } = req.params;
-    
+
     // 🛡️ Guard against malformed ObjectID (Internal Items Only)
     const isValidId = /^[0-9a-fA-F]{24}$/.test(id);
     if (!isValidId) return res.status(400).json({ error: "Invalid Item ID format" });
@@ -524,7 +524,7 @@ app.post("/api/verify-zomato/:id", async (req, res) => {
 
     const updated = await prisma.menuItem.update({
         where: { id },
-        data: { 
+        data: {
             stabilityStatus: status,
             updatedAt: new Date()
         }
@@ -541,15 +541,16 @@ app.get("/api/proxy/image-search", async (req, res) => {
         if (!query) {
             return res.status(400).json({ success: false, error: "Query parameter 'q' is required." });
         }
-        
-        const limit = req.query.limit || 30;
-        const foodSnapUrl = `https://manager.foodsnap.in/api/image/search?q=${encodeURIComponent(query)}&page=1&limit=${limit}&latest=true`;
+
+        const limit = req.query.limit || 12;
+        const page = req.query.page || 1;
+        const foodSnapUrl = `https://manager.foodsnap.in/api/image/search?q=${encodeURIComponent(query)}&page=${page}&limit=${limit}`;
         const response = await fetch(foodSnapUrl);
-        
+
         if (!response.ok) {
             throw new Error(`FoodSnap API error: ${response.statusText}`);
         }
-        
+
         const data = await response.json();
         return res.json(data);
     } catch (error: any) {
@@ -658,7 +659,7 @@ ${languageRule}
             try {
                 console.log(`🤖 [Menu AI OCR Engine] Trying model: ${model}...`);
                 const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-                
+
                 const partsArray: any[] = [{ text: prompt }];
                 if (excelTextPart) partsArray.push(excelTextPart);
                 if (inlineDataPart) partsArray.push(inlineDataPart);
@@ -700,7 +701,7 @@ ${languageRule}
         // Parse returned JSON from Gemini
         const parsedMenu = JSON.parse(textResponse);
         let menuItems: any[] = parsedMenu.menu || [];
-        
+
         // --- Post-Processing: Smart Merge Sizes & Portions ---
         let lastNormalItem: any = null;
         let cleanedMenu: any[] = [];
@@ -712,7 +713,7 @@ ${languageRule}
 
             if (modifierRegex.test(name) && lastNormalItem) {
                 let baseName = lastNormalItem.name.replace(/\s*\(Half\)$/, '');
-                
+
                 if (name.toLowerCase().includes('f') || name.includes('/-')) {
                     item.name = `${baseName} (Full)`;
                     if (!lastNormalItem.name.includes('(Half)')) {
@@ -721,7 +722,7 @@ ${languageRule}
                 } else {
                     item.name = `${baseName} (${name})`;
                 }
-                
+
                 if (item.price === lastNormalItem.price && (name.toLowerCase().includes('1 pc') || name.toLowerCase().includes('1pc'))) {
                     // It's a duplicate of the base item, skip adding it
                     continue;
@@ -743,7 +744,7 @@ ${languageRule}
         let finalMenu: any[] = [];
         for (let baseName in groups) {
             let groupItems = groups[baseName];
-            
+
             // Remove exact duplicates where one has a bracket and other doesn't
             let toRemove = new Set();
             for (let i = 0; i < groupItems.length; i++) {
@@ -756,12 +757,12 @@ ${languageRule}
                     }
                 }
             }
-            
+
             let activeItems = groupItems.filter((i: any) => !toRemove.has(i));
-            
+
             if (activeItems.length > 1) {
                 let itemsWithoutBrackets = activeItems.filter((i: any) => !i.name.includes('('));
-                
+
                 if (itemsWithoutBrackets.length === 2) {
                     itemsWithoutBrackets.sort((a: any, b: any) => a.price - b.price);
                     itemsWithoutBrackets[0].name = `${itemsWithoutBrackets[0].name} (Half)`;
@@ -781,8 +782,8 @@ ${languageRule}
         }
 
         console.log(`✅ [Menu AI OCR Engine] Extracted ${finalMenu.length} items successfully for ${parsedMenu.restaurantName} using model ${selectedModel}!`);
-        res.json({ 
-            success: true, 
+        res.json({
+            success: true,
             restaurantName: parsedMenu.restaurantName || "AI Scraped Restaurant",
             address: parsedMenu.address || "Delhi NCR",
             timings: parsedMenu.timings || "11:00 AM - 11:00 PM",
@@ -859,7 +860,7 @@ app.post("/api/menu/export-formatted", async (req, res) => {
         items.forEach((item: any, idx: number) => {
             const rowNumber = idx + 6;
             const isVeg = item.type === "Pure Veg";
-            
+
             worksheet.getRow(rowNumber).values = [
                 item.name || "",
                 Number(item.price) || 0,
@@ -895,10 +896,10 @@ app.post("/api/menu/export-formatted", async (req, res) => {
                 // Bold Type column (Col 4) with green/red font coloring
                 if (colNumber === 4) {
                     const isPureVeg = cell.value === "Pure Veg";
-                    cell.font = { 
-                        name: 'Arial', 
-                        size: 10, 
-                        bold: true, 
+                    cell.font = {
+                        name: 'Arial',
+                        size: 10,
+                        bold: true,
                         color: { argb: isPureVeg ? 'FF385723' : 'FFC00000' } // Green for Veg, Red for Non-Veg
                     };
                     cell.alignment = { horizontal: 'center', vertical: 'middle' };
@@ -1107,13 +1108,13 @@ app.post('/api/merchant/onboard', async (req: any, res: any) => {
 
         if (menu && Array.isArray(menu) && menu.length > 0) {
             console.log(`🚀 [Merchant Onboarding API] Syncing ${menu.length} menu items...`);
-            
+
             // Map to track category Oids
             const categoryOidMap: Record<string, ObjectId> = {};
 
             for (const item of menu) {
                 const catName = (item.category || "General").trim();
-                
+
                 // Get or create category
                 let catOid = categoryOidMap[catName];
                 if (!catOid) {
@@ -1377,15 +1378,15 @@ app.get('/api/merchant/menu/live/:clerkId', async (req: any, res: any) => {
 
         const items = await itemCollection.find({ clerkId: resolvedClerkId }).toArray();
         const categories = await categoryCollection.find({ clerkId: resolvedClerkId }).toArray();
-        
+
         await client.close();
-        
+
         // Map category IDs to names for UI convenience
         const catMap: Record<string, string> = {};
         categories.forEach((c: any) => {
             catMap[c._id.toString()] = c.name;
         });
-        
+
         const mappedItems = items.map(item => ({
             _id: item._id.toString(),
             name: item.name,
@@ -1432,7 +1433,7 @@ app.post('/api/merchant/menu/update-zone', async (req: any, res: any) => {
 
         const userCollection = db.collection('User');
         const itemCollection = db.collection('Item');
-        
+
         const matchedUser = await userCollection.findOne({ clerkId: { $regex: new RegExp("^" + clerkId + "$", "i") } });
         const resolvedClerkId = matchedUser ? matchedUser.clerkId : clerkId;
 
@@ -1507,7 +1508,7 @@ app.get('/api/merchant/bills/:clerkId', async (req: any, res: any) => {
         emitUpdate('merchant:log', { message: `👤 [Server] Resolving case-insensitive Merchant ID: "${clerkId}"...`, status: 'primary' });
         const matchedUser = await userCollection.findOne({ clerkId: { $regex: new RegExp("^" + clerkId + "$", "i") } });
         const resolvedClerkId = matchedUser ? matchedUser.clerkId : clerkId;
-        
+
         emitUpdate('merchant:log', { message: `👤 [Server] Merchant ID casing resolved to: "${resolvedClerkId}"`, status: 'success' });
 
         // Fetch bills for resolved Clerk ID sorted by createdAt desc (excluding marked deleted where applicable, but fetch all for audit/bridge purposes)
@@ -1517,7 +1518,7 @@ app.get('/api/merchant/bills/:clerkId', async (req: any, res: any) => {
         // Calculate statistics
         const totalCount = bills.length;
         const totalRevenue = bills.reduce((sum, bill) => sum + (bill.total || 0), 0);
-        
+
         // Payments breakdown
         const paymentsBreakdown: Record<string, number> = {};
         bills.forEach(bill => {
@@ -1590,7 +1591,7 @@ app.post('/api/merchant/clear-bills', async (req: any, res: any) => {
         const billIds = merchantBills.map(b => b._id);
 
         console.log(`🧹 [Merchant Bills Clear API] Deleting bills, orders, and payments for Clerk ID: ${resolvedClerkId}...`);
-        
+
         // 1. Delete associated payments
         let paymentsDeleted = 0;
         if (billIds.length > 0) {
@@ -1600,7 +1601,7 @@ app.post('/api/merchant/clear-bills', async (req: any, res: any) => {
 
         // 2. Delete all bills (BillManager)
         const billsResult = await billCollection.deleteMany({ clerkUserId: resolvedClerkId });
-        
+
         // 3. Delete all orders (Order)
         const ordersResult = await orderCollection.deleteMany({ clerkUserId: resolvedClerkId });
 
@@ -2075,7 +2076,7 @@ app.post('/api/merchant/update-menu', async (req: any, res: any) => {
 
         for (const item of menu) {
             const catName = (item.category || "General").trim();
-            
+
             // Get or create category
             let catOid = categoryOidMap[catName];
             if (!catOid) {
@@ -2106,7 +2107,7 @@ app.post('/api/merchant/update-menu', async (req: any, res: any) => {
             const itemType = (item.type || "Pure Veg").trim();
             const isVeg = itemType === "Pure Veg" || itemType === "Veg";
             const isEgg = itemType === "Non-Veg (Egg)";
-            
+
             const rawZones = item.zones || item.zone || '';
             const itemZones = typeof rawZones === 'string' ? rawZones.split(',').map((z: string) => z.trim()).filter(Boolean) : (Array.isArray(rawZones) ? rawZones : []);
 
@@ -2187,7 +2188,7 @@ app.post("/api/quotation/preview", async (req, res) => {
         if (!apiKey) return res.status(500).json({ error: "Gemini API key missing" });
 
         const todayDate = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
-        const nextWeekDate = new Date(Date.now() + 7*24*60*60*1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+        const nextWeekDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
 
         const aiPrompt = `
 You are an expert sales assistant. Extract the following fields from the user's quotation request into a STRICT JSON format.
@@ -2260,11 +2261,11 @@ User Request: "${prompt}"
         data = await response.json();
         let jsonText = data.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
         jsonText = jsonText.replace(/\`\`\`json/g, "").replace(/\`\`\`/g, "").trim();
-        
+
         let parsedData;
         try {
             parsedData = JSON.parse(jsonText);
-        } catch(e) {
+        } catch (e) {
             throw new Error("Failed to parse Gemini response as JSON: " + jsonText);
         }
 
@@ -2415,7 +2416,7 @@ const PORT = process.env.PORT || 3005;
 httpServer.listen(PORT, async () => {
     console.log(`\n🔱 KRAVY DASHBOARD LIVE ON PORT ${PORT}`);
     startStabilityTracker(); // Start Guardian Monitor
-    
+
     // 🛡️ RECOVER STUCK JOBS
     await queueManager.recoverJobs();
 });
