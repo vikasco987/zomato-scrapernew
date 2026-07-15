@@ -113,7 +113,7 @@ export async function scrapeFoodImages(foodName: string, categoryName: string | 
     if (isPizza) {
         searchTerms = `${cleanName} italian pizza single slice close up -recipe -collage -stock`;
     } else if (isRetail) {
-        searchTerms = `${cleanName} high quality product photography white background clear -recipe -collage -stock -food`;
+        searchTerms = `${cleanName} isolated product image white background clear -recipe -collage -stock -food`;
     }
         
     const query = encodeURIComponent(searchTerms);
