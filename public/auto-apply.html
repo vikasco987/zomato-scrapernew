@@ -438,13 +438,13 @@
                             document.getElementById('onboard-email').value = `${cleanEmailName}@kravy.in`;
                         }
                     }
-                    if(data.address && data.address !== "Delhi NCR") {
+                    if(data.address) {
                         document.getElementById('onboard-rest-address').value = data.address;
                     }
-                    if(data.timings && data.timings !== "11:00 AM - 11:00 PM") {
+                    if(data.timings) {
                         document.getElementById('onboard-rest-timings').value = data.timings;
                     }
-                    if(data.phone && data.phone !== "+91 99999 99999") {
+                    if(data.phone) {
                         document.getElementById('onboard-rest-phone').value = data.phone;
                         document.getElementById('onboard-phone').value = data.phone;
                     }
