@@ -3267,7 +3267,9 @@
 
         function copyOnboardCredentials() {
             const email = document.getElementById('successModalEmail').innerText;
-            const phone = document.getElementById('successModalPhone').innerText;
+            let rawPhone = document.getElementById('successModalPhone').innerText;
+            let phone = rawPhone.replace(/\D/g, '');
+            if (phone.length > 10) phone = phone.slice(-10);
             const password = document.getElementById('successModalPassword').innerText;
             
             const textToCopy = `*Kravy POS - Merchant Login*\n\nHere are your login credentials:\n*App Link:* https://play.google.com/store/apps/details?id=com.vikas9095.kravy\n*Dashboard Link:* https://billing.kravy.in\n*Email:* ${email}\n*Phone:* ${phone}\n*Password:* ${password}\n\nPlease keep these safe!`;
