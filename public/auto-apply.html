@@ -70,6 +70,70 @@
             <!-- Left Sidebar: Controls -->
             <div class="space-y-6">
                 
+                <!-- Merchant Config (Copied from Onboard) -->
+                <div class="space-y-6">
+                    <!-- Section 1: Authentication -->
+                    <div class="glass-card rounded-3xl p-6 space-y-6">
+                        <div class="flex items-center gap-3 border-b border-white/5 pb-4">
+                            <span class="text-2xl">👤</span>
+                            <div>
+                                <h3 class="text-lg font-bold text-white/80">Merchant Credentials</h3>
+                                <p class="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Login Access details</p>
+                            </div>
+                        </div>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="text-[10px] font-black uppercase tracking-wider text-white/60 block mb-1">Email Address *</label>
+                                <input type="email" id="onboard-email" placeholder="e.g. delicious@kravy.in" class="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3 text-white text-xs focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500" />
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-black uppercase tracking-wider text-white/60 block mb-1">Phone Number *</label>
+                                <input type="text" id="onboard-phone" placeholder="e.g. 9876543210" class="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3 text-white text-xs focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500" />
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-black uppercase tracking-wider text-white/60 block mb-1">Password *</label>
+                                <div class="relative">
+                                    <input type="password" id="onboard-password" value="Radha@987k" class="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3 pr-16 text-white text-xs focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500" />
+                                    <button type="button" id="toggle-password-btn" onclick="toggleOnboardPassword()" class="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 hover:text-white text-[10px] font-black uppercase tracking-widest transition-all">
+                                        SHOW
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Section 2: Restaurant Details -->
+                    <div class="glass-card rounded-3xl p-6 space-y-6">
+                        <div class="flex items-center gap-3 border-b border-white/5 pb-4">
+                            <span class="text-2xl">🏢</span>
+                            <div>
+                                <h3 class="text-lg font-bold text-white/80">Restaurant Information</h3>
+                                <p class="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Business Profile Settings</p>
+                            </div>
+                        </div>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="text-[10px] font-black uppercase tracking-wider text-white/60 block mb-1">Restaurant Name *</label>
+                                <input type="text" id="onboard-rest-name" placeholder="Name" class="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3 text-white text-xs focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500" />
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-black uppercase tracking-wider text-white/60 block mb-1">Business Address</label>
+                                <input type="text" id="onboard-rest-address" placeholder="Address" class="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3 text-white text-xs focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500" />
+                            </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="text-[10px] font-black uppercase tracking-wider text-white/60 block mb-1">Timings</label>
+                                    <input type="text" id="onboard-rest-timings" placeholder="11 AM - 11 PM" class="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3 text-white text-xs focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500" />
+                                </div>
+                                <div>
+                                    <label class="text-[10px] font-black uppercase tracking-wider text-white/60 block mb-1">Contact</label>
+                                    <input type="text" id="onboard-rest-phone" placeholder="Phone" class="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-3 text-white text-xs focus:border-orange-500 focus:outline-none focus:ring-1 focus:ring-orange-500" />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Upload Box -->
                 <div id="dropZone" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)" class="glass-card p-6 rounded-3xl text-center space-y-4 border-2 border-dashed border-white/10 hover:border-orange-500/50 transition-all cursor-pointer">
                     <div class="w-16 h-16 bg-orange-500/10 text-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-2 pointer-events-none">
@@ -117,6 +181,9 @@
                     <button onclick="exportToExcel()" class="w-full py-4 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 hover:bg-emerald-500 hover:text-black font-black text-xs uppercase tracking-widest rounded-xl transition-all">
                         <span class="flex items-center justify-center gap-2"><i data-lucide="sheet" class="w-4 h-4"></i> Download Excel</span>
                     </button>
+                    <button id="deployBtn" onclick="deployMerchant()" class="w-full py-4 bg-orange-500 hover:bg-orange-400 text-black font-black text-xs uppercase tracking-widest rounded-xl transition-all shadow-xl hover:scale-105 active:scale-95 flex items-center justify-center gap-2">
+                        🚀 DEPLOY & ONBOARD
+                    </button>
                     <!-- For saving to specific merchant, we'd need merchant selection. Keeping Excel simple for now. -->
                 </div>
             </div>
@@ -140,6 +207,50 @@
                         <i data-lucide="image" class="w-12 h-12 opacity-20"></i>
                         <p class="text-sm font-medium">Upload a menu file to begin auto-applying images.</p>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Modal -->
+    <div id="onboardSuccessModal" class="fixed inset-0 bg-black/90 backdrop-blur-xl z-[200] hidden flex items-center justify-center p-8 transition-all duration-500 opacity-0 scale-95">
+        <div class="glass-card max-w-lg w-full bg-[#0a0a0c]/90 border border-emerald-500/30 rounded-[2.5rem] p-10 relative overflow-hidden shadow-[0_0_80px_rgba(16,185,129,0.15)]">
+            
+            <!-- Background Glow -->
+            <div class="absolute top-0 left-1/2 -translate-x-1/2 w-full h-32 bg-emerald-500/20 blur-[60px] pointer-events-none"></div>
+            
+            <div class="relative z-10 flex flex-col items-center text-center">
+                <div class="w-20 h-20 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(16,185,129,0.2)]">
+                    <span class="text-4xl text-emerald-400">🎉</span>
+                </div>
+                
+                <h2 class="text-3xl font-black text-white mb-2 tracking-tight">Onboarding Successful!</h2>
+                <p class="text-sm text-emerald-400/80 font-medium mb-8">The merchant profile and menu are now live.</p>
+                
+                <!-- Credentials Card -->
+                <div class="w-full bg-black/40 border border-white/5 rounded-3xl p-6 mb-8 text-left space-y-4">
+                    <div class="flex items-center justify-between border-b border-white/5 pb-4">
+                        <span class="text-[10px] uppercase tracking-widest text-white/40 font-black">Email</span>
+                        <span id="successModalEmail" class="text-sm font-bold text-white tracking-wide">---</span>
+                    </div>
+                    <div class="flex items-center justify-between border-b border-white/5 pb-4">
+                        <span class="text-[10px] uppercase tracking-widest text-white/40 font-black">Phone</span>
+                        <span id="successModalPhone" class="text-sm font-bold text-white tracking-wide">---</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-[10px] uppercase tracking-widest text-white/40 font-black">Password</span>
+                        <span id="successModalPassword" class="text-sm font-bold text-white tracking-wide">---</span>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="w-full flex gap-4">
+                    <button onclick="closeOnboardSuccessModal()" class="flex-1 px-6 py-4 bg-white/5 hover:bg-white/10 text-white rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all">
+                        Close
+                    </button>
+                    <button id="copyCredentialsBtn" onclick="copyOnboardCredentials()" class="flex-[2] px-6 py-4 bg-emerald-500 hover:bg-emerald-400 text-black rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:shadow-[0_0_30px_rgba(16,185,129,0.5)] flex items-center justify-center gap-2">
+                        <span>📋</span> Copy Details
+                    </button>
                 </div>
             </div>
         </div>
@@ -369,6 +480,117 @@
             document.getElementById('progressPercent').innerText = `${percent}%`;
         }
 
+        // --- 5. ONBOARDING DEPLOY LOGIC ---
+        function toggleOnboardPassword() {
+            const input = document.getElementById('onboard-password');
+            const btn = document.getElementById('toggle-password-btn');
+            if (input.type === 'password') {
+                input.type = 'text';
+                btn.innerText = 'HIDE';
+            } else {
+                input.type = 'password';
+                btn.innerText = 'SHOW';
+            }
+        }
+
+        async function deployMerchant() {
+            const email = document.getElementById('onboard-email').value.trim();
+            const phone = document.getElementById('onboard-phone').value.trim();
+            const password = document.getElementById('onboard-password').value.trim();
+            const restaurantName = document.getElementById('onboard-rest-name').value.trim();
+            const address = document.getElementById('onboard-rest-address').value.trim();
+            const timings = document.getElementById('onboard-rest-timings').value.trim();
+            const contactPhone = document.getElementById('onboard-rest-phone').value.trim();
+
+            if (!email || !phone || !password || !restaurantName) {
+                alert("Please fill in all mandatory fields: Email, Phone, Password, and Restaurant Name.");
+                return;
+            }
+
+            if (extractedItems.length === 0) {
+                alert("Please upload and extract a menu first.");
+                return;
+            }
+
+            const deployBtn = document.getElementById('deployBtn');
+            const originalBtnText = deployBtn.innerHTML;
+            deployBtn.innerHTML = `<div class="loader w-4 h-4 border-2"></div> DEPLOYING...`;
+            deployBtn.style.pointerEvents = 'none';
+
+            // Map extractedItems to the format expected by /api/merchant/onboard
+            const onboardMenuItems = extractedItems.map(item => ({
+                name: item.item_name || item.name || 'Unnamed Item',
+                category: item.category_name || item.category || 'Uncategorized',
+                price: item.price || item.price_default || '0',
+                imageUrl: item.assigned_image || null
+            }));
+
+            const payload = {
+                email,
+                phone,
+                password,
+                restaurantName,
+                address,
+                timings,
+                contactPhone,
+                menu: onboardMenuItems
+            };
+
+            try {
+                const res = await fetch('/api/merchant/onboard', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(data.error || 'Direct deployment failed.');
+                }
+
+                // Show Success Modal
+                document.getElementById('successModalEmail').innerText = email;
+                document.getElementById('successModalPhone').innerText = phone;
+                document.getElementById('successModalPassword').innerText = password;
+                
+                const modal = document.getElementById('onboardSuccessModal');
+                modal.classList.remove('hidden');
+                setTimeout(() => {
+                    modal.classList.remove('opacity-0', 'scale-95');
+                    modal.classList.add('opacity-100', 'scale-100');
+                }, 10);
+
+            } catch (e) {
+                console.error(e);
+                alert(`Deployment Failed:\n${e.message}`);
+            } finally {
+                deployBtn.innerHTML = originalBtnText;
+                deployBtn.style.pointerEvents = 'auto';
+            }
+        }
+
+        function closeOnboardSuccessModal() {
+            const modal = document.getElementById('onboardSuccessModal');
+            modal.classList.remove('opacity-100', 'scale-100');
+            modal.classList.add('opacity-0', 'scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 500);
+        }
+
+        function copyOnboardCredentials() {
+            const email = document.getElementById('successModalEmail').innerText;
+            const phone = document.getElementById('successModalPhone').innerText;
+            const password = document.getElementById('successModalPassword').innerText;
+            
+            const textToCopy = `Login: ${email}\nPhone: ${phone}\nPassword: ${password}\nPortal: https://kravy.in`;
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                const btn = document.getElementById('copyCredentialsBtn');
+                const originalText = btn.innerHTML;
+                btn.innerHTML = `<span>✅</span> Copied!`;
+                setTimeout(() => { btn.innerHTML = originalText; }, 2000);
+            });
+        }
     </script>
 </body>
 </html>
