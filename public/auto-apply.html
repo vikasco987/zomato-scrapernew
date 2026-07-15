@@ -275,8 +275,11 @@
             <label class="text-[10px] font-black uppercase tracking-wider text-white/60">Search Query</label>
             <div class="flex gap-2">
                 <input type="text" id="sidebarSearchInput" class="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-xs focus:border-orange-500 focus:outline-none" placeholder="Search image..." onkeydown="if(event.key === 'Enter') searchSidebarImages(1)">
-                <button onclick="searchSidebarImages(1)" class="px-4 py-2.5 bg-orange-500/20 text-orange-400 hover:bg-orange-500 hover:text-black rounded-xl font-bold transition-colors shadow-lg">
+                <button onclick="searchSidebarImages(1)" class="px-4 py-2.5 bg-orange-500/20 text-orange-400 hover:bg-orange-500 hover:text-black rounded-xl font-bold transition-colors shadow-lg" title="Search FoodSnap Database">
                     <i data-lucide="search" class="w-4 h-4"></i>
+                </button>
+                <button onclick="searchSidebarImages(1, false, true)" class="px-4 py-2.5 bg-blue-500/20 text-blue-400 hover:bg-blue-500 hover:text-white rounded-xl font-bold transition-colors shadow-lg" title="Deep Scrape via Google">
+                    <i data-lucide="globe" class="w-4 h-4"></i>
                 </button>
             </div>
         </div>
@@ -662,18 +665,23 @@
             currentEditIndex = -1;
         }
 
-        async function searchSidebarImages(page = 1, append = false) {
+        let currentGoogleMode = false;
+
+        async function searchSidebarImages(page = 1, append = false, useGoogle = false) {
             const query = document.getElementById('sidebarSearchInput').value.trim();
             if(!query) return;
             
             sidebarCurrentPage = page;
+            if(!append) currentGoogleMode = useGoogle;
+            const isGoogle = currentGoogleMode;
+            
             const grid = document.getElementById('sidebarImageGrid');
             
             if(!append) {
                 grid.innerHTML = `
                     <div class="col-span-2 flex flex-col items-center justify-center py-20 opacity-50">
-                        <div class="loader w-8 h-8 border-4 mb-4"></div>
-                        <span class="text-xs font-bold uppercase tracking-widest">Searching...</span>
+                        <div class="loader w-8 h-8 border-4 mb-4 ${isGoogle ? 'border-blue-500' : 'border-orange-500'} border-t-transparent rounded-full animate-spin"></div>
+                        <span class="text-xs font-bold uppercase tracking-widest ${isGoogle ? 'text-blue-400' : ''}">${isGoogle ? 'Scraping Google...' : 'Searching...'}</span>
                     </div>
                 `;
             } else {
@@ -681,12 +689,17 @@
                 const loadingDiv = document.createElement('div');
                 loadingDiv.id = 'sidebarLoadingMore';
                 loadingDiv.className = 'col-span-2 flex flex-col items-center justify-center py-4 opacity-50';
-                loadingDiv.innerHTML = `<div class="loader w-6 h-6 border-2"></div>`;
+                loadingDiv.innerHTML = `<div class="loader w-6 h-6 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>`;
                 grid.appendChild(loadingDiv);
             }
             
             try {
-                const res = await fetch(`/api/proxy/image-search?q=${encodeURIComponent(query)}&page=${page}&limit=12`);
+                let fetchUrl = `/api/proxy/image-search?q=${encodeURIComponent(query)}&page=${page}&limit=12`;
+                if(isGoogle) {
+                    fetchUrl = `/api/proxy/google-image-search?q=${encodeURIComponent(query)}`;
+                }
+                
+                const res = await fetch(fetchUrl);
                 if(!res.ok) throw new Error("Search failed");
                 
                 const data = await res.json();
@@ -709,7 +722,7 @@
                     grid.innerHTML = ''; // clear loading state
                 }
                 
-                sidebarHasMore = photos.length >= 12;
+                sidebarHasMore = !isGoogle && photos.length >= 12;
                 
                 let html = '';
                 photos.forEach(photo => {

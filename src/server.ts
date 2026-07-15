@@ -559,6 +559,33 @@ app.get("/api/proxy/image-search", async (req, res) => {
     }
 });
 
+// --- GOOGLE IMAGE SEARCH PROXY (FOR SIDEBAR) ---
+app.get("/api/proxy/google-image-search", async (req, res) => {
+    try {
+        const query = req.query.q as string;
+        if (!query) {
+            return res.status(400).json({ success: false, error: "Query parameter 'q' is required." });
+        }
+        const { scrapeFoodImages } = await import("./scraper/index.js");
+        const result = await scrapeFoodImages(query);
+        
+        if (result.success) {
+            // Map the result to match foodsnap format roughly
+            const data = result.candidates.map(c => ({
+                image_url: c.url,
+                title: query + " (Google Scraped)",
+                score: 100
+            }));
+            return res.json({ success: true, data });
+        } else {
+            return res.status(500).json({ success: false, error: result.error });
+        }
+    } catch (error: any) {
+        console.error("Google Image Proxy Error:", error.message);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 // --- MULTIMODAL MENU AI OCR ENGINE ---
 app.post("/api/menu/upload-ocr", upload.single("menuFile"), async (req, res) => {
     try {
