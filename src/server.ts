@@ -658,7 +658,7 @@ Please return a structured JSON response matching the following structure:
   "restaurantName": "Name of the business (or 'AI Scraped Business' if not found)",
   "address": "Address if found (or 'Delhi NCR' if not found)",
   "timings": "Timings if found (or '11:00 AM - 11:00 PM' if not found)",
-  "phone": "Phone number if found (or '+91 99999 99999' if not found)",
+  "phone": "Phone number if found (or '9999999999' if not found)",
   "menu": [
     {
       "category": "Logical Category Name (For Food: Dal, Breads, etc. For Retail: Hardware, Construction, Electronics, etc.)",
@@ -814,7 +814,7 @@ ${languageRule}
             restaurantName: parsedMenu.restaurantName || "AI Scraped Restaurant",
             address: parsedMenu.address || "Delhi NCR",
             timings: parsedMenu.timings || "11:00 AM - 11:00 PM",
-            phone: parsedMenu.phone || "+91 99999 99999",
+            phone: parsedMenu.phone || "9999999999",
             menu: finalMenu
         });
 
@@ -976,7 +976,11 @@ app.post('/api/merchant/onboard', async (req: any, res: any) => {
         }
 
         const cleanEmail = email.trim().toLowerCase();
-        const cleanPhone = phone.replace(/\D/g, '');
+        let cleanPhone = phone.replace(/\D/g, '');
+
+        if (cleanPhone.length > 10) {
+            cleanPhone = cleanPhone.slice(-10);
+        }
 
         if (cleanPhone.length !== 10) {
             return res.status(400).json({ error: "Phone number must be a valid 10-digit number." });
