@@ -348,6 +348,26 @@
                 if(data.success && extracted.length > 0) {
                     extractedItems = extracted;
                     document.getElementById('totalItemsBadge').innerText = `${extractedItems.length} Items`;
+                    
+                    // Auto-fill Merchant Details
+                    if(data.restaurantName && data.restaurantName !== "AI Scraped Restaurant") {
+                        document.getElementById('onboard-rest-name').value = data.restaurantName;
+                        let cleanEmailName = data.restaurantName.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+                        if(cleanEmailName) {
+                            document.getElementById('onboard-email').value = `${cleanEmailName}@kravy.in`;
+                        }
+                    }
+                    if(data.address && data.address !== "Delhi NCR") {
+                        document.getElementById('onboard-rest-address').value = data.address;
+                    }
+                    if(data.timings && data.timings !== "11:00 AM - 11:00 PM") {
+                        document.getElementById('onboard-rest-timings').value = data.timings;
+                    }
+                    if(data.phone && data.phone !== "+91 99999 99999") {
+                        document.getElementById('onboard-rest-phone').value = data.phone;
+                        document.getElementById('onboard-phone').value = data.phone;
+                    }
+                    
                     updateStatus('ocr', 'Success', 'text-emerald-400', false);
                     
                     renderInitialGrid();
