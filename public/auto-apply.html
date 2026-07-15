@@ -143,9 +143,23 @@
                         <p class="text-xs text-gray-400 mt-1">Drag & drop or select an Image/PDF.</p>
                     </div>
                     
-                    <input type="file" id="menuFileInput" class="hidden" accept="image/*,application/pdf" onchange="handleFileUpload(event)">
+                    <input type="file" id="menuFileInput" class="hidden" multiple accept="image/*,application/pdf,.xlsx,.xls,.csv,.doc,.docx" onchange="handleFileUpload(event)">
                     <button onclick="document.getElementById('menuFileInput').click()" class="w-full py-4 bg-orange-500 hover:bg-orange-600 text-black font-black text-xs uppercase tracking-widest rounded-xl transition-all shadow-[0_0_20px_rgba(249,115,22,0.3)]">
                         Select File
+                    </button>
+                </div>
+                
+                <!-- File Queue Box -->
+                <div id="fileQueueContainer" class="hidden glass-card p-5 rounded-3xl space-y-4">
+                    <div class="flex items-center justify-between border-b border-white/5 pb-2">
+                        <h3 class="text-[10px] font-black text-white/80 uppercase tracking-widest">Queued Files (<span id="queueCount">0</span>)</h3>
+                        <i data-lucide="layers" class="w-4 h-4 text-orange-400"></i>
+                    </div>
+                    <div id="fileQueueList" class="space-y-2 max-h-40 overflow-y-auto custom-scrollbar pr-2">
+                        <!-- Files go here -->
+                    </div>
+                    <button onclick="startProcessingQueue()" class="w-full py-3 bg-blue-500 hover:bg-blue-600 text-white font-black text-xs uppercase tracking-widest rounded-xl transition-all shadow-[0_0_20px_rgba(59,130,246,0.3)]">
+                        <i data-lucide="play" class="w-4 h-4 inline-block mr-1 -mt-1"></i> Start Extraction
                     </button>
                 </div>
                 
@@ -307,49 +321,115 @@
             e.preventDefault();
             document.getElementById('dropZone').classList.remove('border-orange-500/50', 'bg-orange-500/5');
         }
+        
         function handleDrop(e) {
             e.preventDefault();
             document.getElementById('dropZone').classList.remove('border-orange-500/50', 'bg-orange-500/5');
-            const file = e.dataTransfer.files[0];
-            if(file) processFile(file);
+            addFilesToQueue(e.dataTransfer.files);
         }
         
         async function handleFileUpload(event) {
-            const file = event.target.files[0];
-            if(file) processFile(file);
+            addFilesToQueue(event.target.files);
         }
         
-        async function processFile(file) {
-            // Reset UI
-            extractedItems = [];
-            usedImages.clear();
-            document.getElementById('itemsGrid').innerHTML = '';
-            document.getElementById('exportBox').classList.add('opacity-50', 'pointer-events-none');
+        function addFilesToQueue(files) {
+            if(!files || files.length === 0) return;
+            for(let i=0; i<files.length; i++) {
+                fileQueue.push(files[i]);
+            }
+            renderFileQueue();
+        }
+        
+        function renderFileQueue() {
+            const container = document.getElementById('fileQueueContainer');
+            const list = document.getElementById('fileQueueList');
+            const count = document.getElementById('queueCount');
+            
+            if(fileQueue.length > 0) {
+                container.classList.remove('hidden');
+            } else {
+                container.classList.add('hidden');
+            }
+            
+            count.innerText = fileQueue.length;
+            
+            list.innerHTML = fileQueue.map((file, idx) => `
+                <div class="flex items-center justify-between p-2.5 bg-white/5 rounded-xl border border-white/10 group hover:border-orange-500/30 transition-colors">
+                    <div class="flex items-center gap-3 overflow-hidden">
+                        <i data-lucide="file-text" class="w-4 h-4 text-orange-400 flex-shrink-0"></i>
+                        <span class="text-[10px] text-white/80 font-medium truncate max-w-[150px]" title="${file.name}">${file.name}</span>
+                    </div>
+                    <button onclick="removeFileFromQueue(${idx})" class="text-rose-400/50 hover:text-rose-400 transition-colors">
+                        <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                    </button>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+        
+        function removeFileFromQueue(idx) {
+            fileQueue.splice(idx, 1);
+            renderFileQueue();
+        }
+        
+        async function startProcessingQueue() {
+            if(fileQueue.length === 0) return;
+            
+            const container = document.getElementById('fileQueueContainer');
+            container.classList.add('opacity-50', 'pointer-events-none');
+            
+            if(extractedItems.length === 0) {
+                usedImages.clear();
+                document.getElementById('itemsGrid').innerHTML = '';
+                document.getElementById('exportBox').classList.add('opacity-50', 'pointer-events-none');
+            }
             
             updateStatus('ocr', 'Extracting...', 'text-orange-400', true);
             updateProgress(0, 0);
             
-            try {
-                const formData = new FormData();
-                formData.append("menuFile", file);
+            const totalFiles = fileQueue.length;
+            let currentFileIdx = 0;
+            
+            const filesToProcess = [...fileQueue];
+            fileQueue = [];
+            renderFileQueue();
+            
+            let combinedMenu = [...extractedItems];
+            let lastSuccessData = null;
+            
+            for(let file of filesToProcess) {
+                currentFileIdx++;
+                updateStatus('ocr', `Extracting ${currentFileIdx}/${totalFiles}...`, 'text-orange-400', true);
                 
-                const res = await fetch("/api/menu/upload-ocr", {
-                    method: "POST",
-                    body: formData
-                });
-                
-                if(!res.ok) throw new Error("OCR Failed");
-                
-                const data = await res.json();
-                
-                // OCR route returns data.menu for items
-                const extracted = data.items || data.menu || [];
-                
-                if(data.success && extracted.length > 0) {
-                    extractedItems = extracted;
-                    document.getElementById('totalItemsBadge').innerText = `${extractedItems.length} Items`;
+                try {
+                    const formData = new FormData();
+                    formData.append("menuFile", file);
                     
-                    // Auto-fill Merchant Details
+                    const res = await fetch("/api/menu/upload-ocr", {
+                        method: "POST",
+                        body: formData
+                    });
+                    
+                    if(!res.ok) throw new Error(`OCR Failed for ${file.name}`);
+                    
+                    const data = await res.json();
+                    const extracted = data.items || data.menu || [];
+                    
+                    if(data.success && extracted.length > 0) {
+                        combinedMenu = combinedMenu.concat(extracted);
+                        lastSuccessData = data;
+                    }
+                } catch (err) {
+                    console.error("Error processing file", file.name, err);
+                }
+            }
+            
+            if(combinedMenu.length > 0) {
+                extractedItems = combinedMenu;
+                document.getElementById('totalItemsBadge').innerText = `${extractedItems.length} Items`;
+                
+                if(lastSuccessData) {
+                    const data = lastSuccessData;
                     if(data.restaurantName && data.restaurantName !== "AI Scraped Restaurant") {
                         document.getElementById('onboard-rest-name').value = data.restaurantName;
                         let cleanEmailName = data.restaurantName.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
@@ -367,21 +447,16 @@
                         document.getElementById('onboard-rest-phone').value = data.phone;
                         document.getElementById('onboard-phone').value = data.phone;
                     }
-                    
-                    updateStatus('ocr', 'Success', 'text-emerald-400', false);
-                    
-                    renderInitialGrid();
-                    
-                    // Start auto applying images automatically
-                    autoApplyImages();
-                } else {
-                    throw new Error("No items extracted");
                 }
-            } catch (err) {
-                console.error(err);
-                updateStatus('ocr', 'Failed', 'text-rose-400', false);
-                alert("Failed to extract menu: " + err.message);
+                
+                updateStatus('ocr', 'Success', 'text-emerald-400', false);
+                renderInitialGrid();
+                autoApplyImages();
+            } else {
+                updateStatus('ocr', 'Failed All', 'text-rose-400', false);
             }
+            
+            container.classList.remove('opacity-50', 'pointer-events-none');
         }
         
         // --- 2. RENDER GRID ---
