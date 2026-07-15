@@ -311,6 +311,7 @@
         
         let extractedItems = [];
         const usedImages = new Set();
+        let fileQueue = [];
         
         // --- 1. HANDLE UPLOAD & OCR ---
         function handleDragOver(e) {
