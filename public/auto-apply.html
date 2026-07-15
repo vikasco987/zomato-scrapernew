@@ -712,7 +712,7 @@
             const phone = document.getElementById('successModalPhone').innerText;
             const password = document.getElementById('successModalPassword').innerText;
             
-            const textToCopy = `Login: ${email}\nPhone: ${phone}\nPassword: ${password}\nPortal: https://kravy.in`;
+            const textToCopy = `*Kravy POS - Merchant Login*\n\nHere are your login credentials:\n*App Link:* https://play.google.com/store/apps/details?id=com.vikas9095.kravy\n*Dashboard Link:* https://billing.kravy.in\n*Email:* ${email}\n*Phone:* ${phone}\n*Password:* ${password}\n\nPlease keep these safe!`;
             navigator.clipboard.writeText(textToCopy).then(() => {
                 const btn = document.getElementById('copyCredentialsBtn');
                 const originalText = btn.innerHTML;
