@@ -107,8 +107,14 @@ export async function scrapeAndUpdateExternalMenu(userId: string, jobId?: string
         });
     }
 
+    // 🛡️ DO NOT OVERWRITE EXISTING IMAGES
+    // We filter out items that already have an image (e.g., from the UI/OCR extraction).
+    const initialCount = items.length;
+    items = items.filter((i: any) => !i.image || String(i.image).trim() === "");
+    console.log(`⚡ PIPELINE: Kept ${items.length} items without images (out of ${initialCount}).`);
+
     if (items.length === 0) {
-        console.warn("⚠️ No items found for this target.");
+        console.warn("⚠️ No items without images found for this target.");
         return { success: true, processed: 0 };
     }
 
