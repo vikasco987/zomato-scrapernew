@@ -534,6 +534,29 @@ app.post("/api/verify-zomato/:id", async (req, res) => {
     res.json(updated);
 });
 
+// --- FOODSNAP IMAGE SEARCH PROXY ---
+app.get("/api/proxy/image-search", async (req, res) => {
+    try {
+        const query = req.query.q as string;
+        if (!query) {
+            return res.status(400).json({ success: false, error: "Query parameter 'q' is required." });
+        }
+        
+        const foodSnapUrl = `https://manager.foodsnap.in/api/image/search?q=${encodeURIComponent(query)}&page=1&limit=6&latest=true`;
+        const response = await fetch(foodSnapUrl);
+        
+        if (!response.ok) {
+            throw new Error(`FoodSnap API error: ${response.statusText}`);
+        }
+        
+        const data = await response.json();
+        return res.json(data);
+    } catch (error: any) {
+        console.error("Image Search Proxy Error:", error.message);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 // --- MULTIMODAL MENU AI OCR ENGINE ---
 app.post("/api/menu/upload-ocr", upload.single("menuFile"), async (req, res) => {
     try {
