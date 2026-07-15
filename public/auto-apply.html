@@ -71,13 +71,13 @@
             <div class="space-y-6">
                 
                 <!-- Upload Box -->
-                <div class="glass-card p-6 rounded-3xl text-center space-y-4">
-                    <div class="w-16 h-16 bg-orange-500/10 text-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-2">
+                <div id="dropZone" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)" class="glass-card p-6 rounded-3xl text-center space-y-4 border-2 border-dashed border-white/10 hover:border-orange-500/50 transition-all cursor-pointer">
+                    <div class="w-16 h-16 bg-orange-500/10 text-orange-500 rounded-2xl flex items-center justify-center mx-auto mb-2 pointer-events-none">
                         <i data-lucide="file-up" class="w-8 h-8"></i>
                     </div>
-                    <div>
+                    <div class="pointer-events-none">
                         <h3 class="text-lg font-semibold text-white">Upload Menu</h3>
-                        <p class="text-xs text-gray-400 mt-1">Select an Image (JPEG/PNG) or PDF to extract items via OCR.</p>
+                        <p class="text-xs text-gray-400 mt-1">Drag & drop or select an Image/PDF.</p>
                     </div>
                     
                     <input type="file" id="menuFileInput" class="hidden" accept="image/*,application/pdf" onchange="handleFileUpload(event)">
@@ -154,10 +154,27 @@
         const usedImages = new Set();
         
         // --- 1. HANDLE UPLOAD & OCR ---
+        function handleDragOver(e) {
+            e.preventDefault();
+            document.getElementById('dropZone').classList.add('border-orange-500/50', 'bg-orange-500/5');
+        }
+        function handleDragLeave(e) {
+            e.preventDefault();
+            document.getElementById('dropZone').classList.remove('border-orange-500/50', 'bg-orange-500/5');
+        }
+        function handleDrop(e) {
+            e.preventDefault();
+            document.getElementById('dropZone').classList.remove('border-orange-500/50', 'bg-orange-500/5');
+            const file = e.dataTransfer.files[0];
+            if(file) processFile(file);
+        }
+        
         async function handleFileUpload(event) {
             const file = event.target.files[0];
-            if(!file) return;
-            
+            if(file) processFile(file);
+        }
+        
+        async function processFile(file) {
             // Reset UI
             extractedItems = [];
             usedImages.clear();
@@ -180,8 +197,11 @@
                 
                 const data = await res.json();
                 
-                if(data.success && data.items && data.items.length > 0) {
-                    extractedItems = data.items;
+                // OCR route returns data.menu for items
+                const extracted = data.items || data.menu || [];
+                
+                if(data.success && extracted.length > 0) {
+                    extractedItems = extracted;
                     document.getElementById('totalItemsBadge').innerText = `${extractedItems.length} Items`;
                     updateStatus('ocr', 'Success', 'text-emerald-400', false);
                     
