@@ -542,7 +542,8 @@ app.get("/api/proxy/image-search", async (req, res) => {
             return res.status(400).json({ success: false, error: "Query parameter 'q' is required." });
         }
         
-        const foodSnapUrl = `https://manager.foodsnap.in/api/image/search?q=${encodeURIComponent(query)}&page=1&limit=6&latest=true`;
+        const limit = req.query.limit || 30;
+        const foodSnapUrl = `https://manager.foodsnap.in/api/image/search?q=${encodeURIComponent(query)}&page=1&limit=${limit}&latest=true`;
         const response = await fetch(foodSnapUrl);
         
         if (!response.ok) {

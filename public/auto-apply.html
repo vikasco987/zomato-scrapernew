@@ -672,7 +672,7 @@
             `;
             
             try {
-                const res = await fetch(`/api/proxy/image-search?q=${encodeURIComponent(query)}`);
+                const res = await fetch(`/api/proxy/image-search?q=${encodeURIComponent(query)}&limit=30`);
                 if(!res.ok) throw new Error("Search failed");
                 
                 const data = await res.json();
