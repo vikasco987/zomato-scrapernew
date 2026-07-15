@@ -137,7 +137,7 @@ export async function scrapeFoodImages(foodName: string, categoryName: string | 
     await page.goto(ddgUrl, { waitUntil: 'domcontentloaded' });
     await randomJitter(800, 1500);
     let candidates = await page.evaluate(() => {
-      return Array.from(document.querySelectorAll('.tile--img__img')).slice(0, 10).map(img => ({
+      return Array.from(document.querySelectorAll('.tile--img__img')).slice(0, 30).map(img => ({
            url: (img as HTMLImageElement).src || "", width: 500, height: 500
       }));
     }).then((res: any[]) => filterCandidates(res));
@@ -151,7 +151,7 @@ export async function scrapeFoodImages(foodName: string, categoryName: string | 
       await page.goto(bingUrl, { waitUntil: 'domcontentloaded' });
       await randomJitter(1000, 2000);
       let rawCandidates = await page.evaluate(() => {
-        return Array.from(document.querySelectorAll('.iusc')).slice(0, 10).map(res => {
+        return Array.from(document.querySelectorAll('.iusc')).slice(0, 30).map(res => {
           const m = res.getAttribute('m');
           if(!m) return null;
           const metadata = JSON.parse(m);
@@ -168,7 +168,7 @@ export async function scrapeFoodImages(foodName: string, categoryName: string | 
       await page.goto(googleUrl, { waitUntil: 'domcontentloaded' });
       await randomJitter(1000, 2000);
       let rawCandidates = await page.evaluate(() => {
-        return Array.from(document.querySelectorAll('img')).slice(5, 20).map(img => ({
+        return Array.from(document.querySelectorAll('img')).slice(5, 40).map(img => ({
            url: img.src || img.dataset.src || "", width: 400, height: 400
         })).filter(c => c.url && c.url.startsWith('http'));
       });
