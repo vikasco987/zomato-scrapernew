@@ -413,7 +413,8 @@
                     
                     try {
                         const rawName = item.item_name || item.name || "";
-                        const cleanName = rawName.split("[")[0].split("(")[0].trim();
+                        let cleanName = rawName.replace(/^\(v\)\s*/i, '').replace(/\[.*?\]|\(.*?\)/g, '').trim();
+                        if(!cleanName) cleanName = rawName.trim();
                         
                         if(!cleanName) throw new Error("Empty name");
                         
@@ -637,7 +638,8 @@
             currentEditIndex = index;
             
             const rawName = item.item_name || item.name || "";
-            const cleanName = rawName.split("[")[0].split("(")[0].trim();
+            let cleanName = rawName.replace(/^\(v\)\s*/i, '').replace(/\[.*?\]|\(.*?\)/g, '').trim();
+            if(!cleanName) cleanName = rawName.trim();
             
             document.getElementById('sidebarItemName').innerText = rawName;
             document.getElementById('sidebarSearchInput').value = cleanName;
